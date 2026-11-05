@@ -1,33 +1,45 @@
 import Link from "next/link";
-import { ShieldCheck, Radar, CheckCircle2, GitCompare } from "lucide-react";
+import { ShieldCheck, Radar, CheckCircle2, GitCompare, ArrowRight, Sparkles, Globe2 } from "lucide-react";
 import { getSession } from "@/lib/auth";
 
 export default async function Landing() {
   const s = await getSession();
   const steps = [
-    [Radar, "Discover", "Finds your business across directories, maps and the web."],
-    [GitCompare, "Compare", "Deterministic checks against your verified source of truth."],
+    [Radar, "Discover", "Searches the live web (TinyFish) for every page that mentions your business."],
+    [GitCompare, "Compare", "AI reads each page; deterministic rules compare it with your verified facts."],
     [ShieldCheck, "Approve", "You approve every external change. Nothing is edited silently."],
-    [CheckCircle2, "Verify", "The system re-reads the listing to confirm the fix really landed."],
+    [CheckCircle2, "Verify", "The system re-reads the listing to prove the fix really landed."],
   ] as const;
   return (
-    <main className="mx-auto max-w-5xl px-6 py-20">
-      <p className="text-sm font-medium text-accent">FonectaGuard</p>
-      <h1 className="mt-4 max-w-3xl text-5xl font-semibold tracking-tight text-white">Connect once. Stay accurate everywhere.</h1>
-      <p className="mt-5 max-w-2xl text-lg text-zinc-400">An evidence-based, self-healing business presence platform: it continuously checks where your business appears online, detects drift from the truth, and closes the loop with approved, verified corrections.</p>
-      <div className="mt-8 flex gap-3">
-        <Link href={s ? "/dashboard" : "/login"} className="btn btn-primary">{s ? "Open dashboard" : "Try the demo"}</Link>
-      </div>
-      <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map(([Icon, t, d]) => (
-          <div key={t} className="card">
-            <Icon className="h-5 w-5 text-accent" />
-            <h3 className="mt-3 font-medium text-white">{t}</h3>
-            <p className="mt-1 text-sm text-zinc-400">{d}</p>
+    <main className="mx-auto max-w-6xl px-6 pb-24">
+      <header className="flex items-center justify-between py-6">
+        <span className="flex items-center gap-2.5 text-lg font-semibold tracking-tight text-slate-900"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30"><ShieldCheck className="h-5 w-5" /></span>FonectaGuard</span>
+        <Link href={s ? "/dashboard" : "/login"} className="btn btn-ghost">{s ? "Dashboard" : "Sign in"}</Link>
+      </header>
+      <section className="py-16 text-center">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"><Sparkles className="h-3.5 w-3.5" /> Powered by TinyFish live web agents + AI</span>
+        <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl">Connect once.<br /><span className="text-gradient">Stay accurate everywhere.</span></h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-500">FonectaGuard continuously checks where your business appears online, catches wrong phone numbers, hours and addresses, and closes the loop with approved, verified corrections.</p>
+        <div className="mt-9 flex justify-center gap-3">
+          <Link href={s ? "/dashboard" : "/login"} className="btn btn-primary h-12 px-6 text-base">{s ? "Open dashboard" : "Try it on your business"} <ArrowRight className="h-4 w-4" /></Link>
+        </div>
+        <div className="mx-auto mt-14 grid max-w-3xl grid-cols-3 gap-3 text-left">
+          {[["Live web", "TinyFish search + fetch"], ["AI extraction", "OpenRouter, validated"], ["Human approval", "verified after every fix"]].map(([v, l]) => (
+            <div key={l} className="card !p-4"><p className="text-lg font-semibold text-slate-900">{v}</p><p className="text-xs text-slate-500">{l}</p></div>
+          ))}
+        </div>
+      </section>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map(([Icon, t, d], i) => (
+          <div key={t} className="card transition hover:-translate-y-0.5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-accent"><Icon className="h-5 w-5" /></span>
+            <p className="mt-4 text-xs font-medium text-slate-400">STEP {i + 1}</p>
+            <h3 className="font-semibold text-slate-900">{t}</h3>
+            <p className="mt-1 text-sm text-slate-500">{d}</p>
           </div>
         ))}
-      </div>
-      <p className="mt-10 text-xs text-zinc-500">The demo uses a fictional business and a clearly labelled simulated directory. No third-party platform is modified.</p>
+      </section>
+      <p className="mt-12 flex items-center justify-center gap-2 text-center text-xs text-slate-500"><Globe2 className="h-4 w-4" /> Live discovery and reading are real. External corrections are submitted by you; the demo directory is simulated and labelled.</p>
     </main>
   );
 }

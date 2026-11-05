@@ -54,6 +54,10 @@ export function compareField(field: FieldName, canonical: unknown, observed: unk
       if (c === o) return result(field, "exact", null, c, o, "Addresses match.");
       const nc = normalizeAddress(c), no = normalizeAddress(o);
       if (nc === no) return result(field, "equivalent", null, c, o, "Addresses match after formatting normalisation.");
+      // Directories often omit the postcode/country; treat as the same address when one side's tokens are all in the other.
+      const toks = (a: string) => a.split(" ").filter((t) => t && !/^\d{5}$/.test(t) && !["finland", "suomi", "fi"].includes(t));
+      const tc = toks(nc), to = toks(no), [small, big] = tc.length <= to.length ? [tc, to] : [to, tc];
+      if (small.length >= 2 && small.every((t) => big.includes(t)) && small.some((t) => /\d/.test(t))) return result(field, "equivalent", null, c, o, "Addresses match (postcode/country omitted).");
       return result(field, "likely", "critical", c, o, `Published address "${o}" differs from verified address "${c}". It may be an outdated location.`);
     }
     case "website": {
@@ -68,7 +72,7 @@ export function compareField(field: FieldName, canonical: unknown, observed: unk
     case "name": {
       if (c === o) return result(field, "exact", null, c, o, "Names match.");
       const nc = normalizeText(c), no = normalizeText(o);
-      if (nc === no) return result(field, "equivalent", null, c, o, "Names match after normalisation.");
+      if (nc === no || nc.replace(/ /g, "") === no.replace(/ /g, "")) return result(field, "equivalent", null, c, o, "Names match after normalisation.");
       if (tokenSimilarity(nc, no) >= 0.6 || no.includes(nc) || nc.includes(no)) return result(field, "harmless", null, c, o, "Name differs slightly (e.g. suffix or descriptor).");
       return result(field, "likely", "medium", c, o, `Published name "${o}" differs from "${c}".`);
     }

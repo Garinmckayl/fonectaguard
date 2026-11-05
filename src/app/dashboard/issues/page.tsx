@@ -40,15 +40,15 @@ export default async function Issues(props: { searchParams: Promise<{ severity?:
             return (
               <li key={d.id} className="card fade-in">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-medium text-white">{info?.label ?? l?.platform} — {FIELD_LABELS[d.fieldName as FieldName]}</h3>
+                  <h3 className="font-medium text-slate-900">{info?.label ?? l?.platform} — {FIELD_LABELS[d.fieldName as FieldName]}</h3>
                   <div className="flex gap-2"><SeverityBadge s={d.severity} /><Badge tone="blue">{d.status.replaceAll("_", " ")}</Badge><Badge>{Math.round(d.confidence * 100)}% · {d.classification}</Badge></div>
                 </div>
                 <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3"><p className="text-xs text-zinc-500">Published</p>{displayValue(d.fieldName, d.observedValueJson)}</div>
-                  <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><p className="text-xs text-zinc-500">Verified</p>{displayValue(d.fieldName, d.expectedValueJson)}</div>
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3"><p className="text-xs text-slate-500">Published</p>{displayValue(d.fieldName, d.observedValueJson)}</div>
+                  <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><p className="text-xs text-slate-500">Verified</p>{displayValue(d.fieldName, d.expectedValueJson)}</div>
                 </div>
-                <p className="mt-3 text-sm text-zinc-300">{d.explanation}</p>
-                <p className="mt-1 text-xs text-zinc-500">Detected {ago(d.firstDetectedAt)} · last seen {ago(d.lastSeenAt)} · <a className="underline" href={l?.url}>{l?.url}</a></p>
+                <p className="mt-3 text-sm text-slate-700">{d.explanation}</p>
+                <p className="mt-1 text-xs text-slate-500">Detected {ago(d.firstDetectedAt)} · last seen {ago(d.lastSeenAt)} · <a className="underline" href={l?.url}>{l?.url}</a></p>
                 {!["resolved", "dismissed", "approved", "applying", "verifying"].includes(d.status) && (
                   <div className="mt-3 flex gap-2">
                     {d.status === "awaiting_approval" && <Link className="btn btn-primary" href="/dashboard/approvals">Review proposal</Link>}

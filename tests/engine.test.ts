@@ -26,6 +26,11 @@ describe("discrepancy detection", () => {
     expect(compareField("description", "Modern Italian restaurant", "Authentic Italian dining").severity).toBeNull();
     expect(compareField("email", "a@b.fi", undefined).classification).toBe("missing");
   });
+  it("does not flag cosmetic differences (accents, spacing, postcode)", () => {
+    expect(compareField("name", "CafeArt", "Café Art").classification).toBe("equivalent");
+    expect(compareField("address", "Läntinen Rantakatu 5, 20100 Turku", "Läntinen rantakatu 5, Turku").classification).toBe("equivalent");
+    expect(compareField("address", "Läntinen Rantakatu 5, 20100 Turku", "Läntinen Rantakatu 15, Turku").severity).toBe("critical");
+  });
   it("parses Finnish hours", () => {
     expect(parseHours("ma-pe 8-22; la 10-18; su suljettu")).toMatchObject({ mon: "08:00-22:00", sat: "10:00-18:00", sun: "closed" });
   });

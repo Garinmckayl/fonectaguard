@@ -10,9 +10,9 @@ export default async function DemoListing(props: { params: Promise<{ slug: strin
   if (!r) notFound();
   return (
     <main className="mx-auto max-w-xl px-6 py-16">
-      <p className="text-xs text-amber-300">Simulated demo directory ({r.platform}) — not a real platform.</p>
-      <h1 className="mt-2 text-2xl font-semibold text-white">{r.name}</h1>
-      <dl className="mt-4 space-y-1 text-zinc-300">
+      <p className="text-xs text-amber-600">Simulated demo directory ({r.platform}) — not a real platform.</p>
+      <h1 className="mt-2 text-2xl font-semibold text-slate-900">{r.name}</h1>
+      <dl className="mt-4 space-y-1 text-slate-700">
         <div>Address: {r.address}</div><div>Phone: {r.phone}</div><div>Hours: {r.hours}</div><div>Website: {r.website}</div>
       </dl>
     </main>

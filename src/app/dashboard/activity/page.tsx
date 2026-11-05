@@ -13,9 +13,9 @@ export default async function Activity() {
         <ol className="card space-y-3 border-l-2 border-accent/30">
           {events.map((e) => (
             <li key={e.id} className="text-sm">
-              <div className="flex flex-wrap items-baseline gap-2"><time className="text-xs text-zinc-500" dateTime={new Date(e.createdAt).toISOString()}>{new Date(e.createdAt).toLocaleString()}</time><span className="rounded bg-white/5 px-1.5 text-xs text-zinc-400">{e.eventType}</span></div>
-              <p className="text-zinc-200">{e.message}</p>
-              {typeof e.metadataJson?.url === "string" && <p className="text-xs text-zinc-500">{e.metadataJson.url}</p>}
+              <div className="flex flex-wrap items-baseline gap-2"><time className="text-xs text-slate-500" dateTime={new Date(e.createdAt).toISOString()}>{new Date(e.createdAt).toLocaleString()}</time><span className="rounded bg-slate-100 px-1.5 text-xs text-slate-500">{e.eventType}</span></div>
+              <p className="text-slate-700">{e.message}</p>
+              {typeof e.metadataJson?.url === "string" && <p className="text-xs text-slate-500">{e.metadataJson.url}</p>}
             </li>
           ))}
         </ol>

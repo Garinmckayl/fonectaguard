@@ -18,12 +18,12 @@ export function ApprovalActions({ id, current, canAct }: { id: string; current: 
       router.refresh();
     } catch (e) { setErr(e instanceof Error ? e.message : "Failed"); } finally { setBusy(null); }
   }
-  if (!canAct) return <p className="text-sm text-zinc-500">Your role cannot approve changes.</p>;
+  if (!canAct) return <p className="text-sm text-slate-500">Your role cannot approve changes.</p>;
   return (
     <div className="space-y-3">
       {editing && (
         <label className="block text-sm">
-          <span className="mb-1 block text-zinc-400">Proposed value</span>
+          <span className="mb-1 block text-slate-500">Proposed value</span>
           <input className="input" value={value} onChange={(e) => setValue(e.target.value)} maxLength={500} />
         </label>
       )}
@@ -32,7 +32,7 @@ export function ApprovalActions({ id, current, canAct }: { id: string; current: 
         <button className="btn btn-ghost" disabled={!!busy} onClick={() => { setEditing(!editing); setValue(current); }}>{editing ? "Cancel edit" : "Edit Proposed Value"}</button>
         <button className="btn btn-danger" disabled={!!busy} onClick={() => run("reject")}>Reject</button>
       </div>
-      {err && <p role="alert" className="text-sm text-red-400">{err}</p>}
+      {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
     </div>
   );
 }

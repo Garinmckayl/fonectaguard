@@ -8,13 +8,15 @@ import { post } from "./actions";
 interface Ev { id: string; eventType: string; message: string; createdAt: number }
 
 /** Starts a real scan and polls its persisted events until completion. */
-export function LiveScan({ locationId }: { locationId: string }) {
+export function LiveScan({ locationId, autoStart = false }: { locationId: string; autoStart?: boolean }) {
   const router = useRouter();
   const [events, setEvents] = useState<Ev[]>([]);
   const [status, setStatus] = useState<"idle" | "running" | "completed" | "failed">("idle");
   const [err, setErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   useEffect(() => () => clearInterval(timer.current), []);
+  useEffect(() => { if (autoStart) void start(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function start() {
     setErr(null); setEvents([]); setStatus("running");
@@ -35,16 +37,16 @@ export function LiveScan({ locationId }: { locationId: string }) {
       <button className="btn btn-primary" onClick={start} disabled={status === "running"}>
         {status === "running" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />} {status === "running" ? "Scanning…" : "Run Live Scan"}
       </button>
-      {err && <p role="alert" className="mt-2 text-sm text-red-400">{err}</p>}
+      {err && <p role="alert" className="mt-2 text-sm text-red-600">{err}</p>}
       {status !== "idle" && (
         <ol aria-live="polite" className="card fade-in mt-4 max-h-72 space-y-2 overflow-auto text-sm">
           {events.map((e) => (
             <li key={e.id} className="fade-in flex gap-2">
-              {e.eventType === "discrepancy_detected" ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />}
+              {e.eventType === "discrepancy_detected" ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />}
               <span>{e.message}</span>
             </li>
           ))}
-          {status === "running" && <li className="flex gap-2 text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> working…</li>}
+          {status === "running" && <li className="flex gap-2 text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> working…</li>}
         </ol>
       )}
     </div>

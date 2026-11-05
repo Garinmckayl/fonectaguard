@@ -17,17 +17,17 @@ export default async function Settings() {
       <PageHeader title="Source of truth" sub="Only owner-verified values are treated as authoritative. AI suggestions never become canonical on their own." />
       <div className="card">
         <table className="w-full text-left text-sm">
-          <thead className="text-xs uppercase text-zinc-500"><tr><th className="py-2">Field</th><th>Verified value</th><th>Version</th><th>Verified</th></tr></thead>
+          <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Field</th><th>Verified value</th><th>Version</th><th>Verified</th></tr></thead>
           <tbody>
             {(Object.keys(canon) as FieldName[]).map((f) => (
-              <tr key={f} className="border-t border-line"><td className="py-2">{FIELD_LABELS[f]}</td><td>{displayValue(f, canon[f]!.value)}</td><td>v{canon[f]!.version}</td><td className="text-zinc-400">{new Date(canon[f]!.verifiedAt).toLocaleDateString()}</td></tr>
+              <tr key={f} className="border-t border-line"><td className="py-2">{FIELD_LABELS[f]}</td><td>{displayValue(f, canon[f]!.value)}</td><td>v{canon[f]!.version}</td><td className="text-slate-500">{new Date(canon[f]!.verifiedAt).toLocaleDateString()}</td></tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="card mt-4 text-sm text-zinc-400">
+      <div className="card mt-4 text-sm text-slate-500">
         <p>Monitoring frequency: <Badge tone="teal">{loc.monitoringFrequency}</Badge> · Next scheduled scan: {loc.nextScanAt ? new Date(loc.nextScanAt).toLocaleString() : "not scheduled"}</p>
-        <p className="mt-2 text-xs text-zinc-500">Scheduled scans run via the cron entry point (<code>/api/cron</code>), independent of the browser.</p>
+        <p className="mt-2 text-xs text-slate-500">Scheduled scans run via the cron entry point (<code>/api/cron</code>), independent of the browser.</p>
       </div>
     </div>
   );

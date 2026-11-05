@@ -1,14 +1,14 @@
 import clsx from "clsx";
 
 const SEV: Record<string, string> = {
-  critical: "bg-red-500/15 text-red-300 border-red-500/30",
-  high: "bg-orange-500/15 text-orange-300 border-orange-500/30",
-  medium: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  low: "bg-zinc-500/15 text-zinc-300 border-zinc-500/30",
+  critical: "bg-red-500/15 text-red-600 border-red-500/30",
+  high: "bg-orange-500/15 text-orange-600 border-orange-500/30",
+  medium: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  low: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 export function Badge({ children, tone = "zinc", className }: { children: React.ReactNode; tone?: string; className?: string }) {
-  const tones: Record<string, string> = { zinc: "bg-white/5 text-zinc-300 border-line", teal: "bg-accent/10 text-accent border-accent/30", amber: "bg-amber-500/10 text-amber-300 border-amber-500/30", red: "bg-red-500/10 text-red-300 border-red-500/30", blue: "bg-sky-500/10 text-sky-300 border-sky-500/30" };
+  const tones: Record<string, string> = { zinc: "bg-slate-100 text-slate-700 border-line", teal: "bg-accent/10 text-accent border-accent/30", amber: "bg-amber-500/10 text-amber-600 border-amber-500/30", red: "bg-red-500/10 text-red-600 border-red-500/30", blue: "bg-sky-500/10 text-sky-600 border-sky-500/30" };
   return <span className={clsx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", tones[tone] ?? tones.zinc, className)}>{children}</span>;
 }
 
@@ -27,8 +27,8 @@ export function PageHeader({ title, sub, children }: { title: string; sub?: stri
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-zinc-400">{sub}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
+        {sub && <p className="mt-1 text-sm text-slate-500">{sub}</p>}
       </div>
       {children}
     </div>
@@ -36,5 +36,5 @@ export function PageHeader({ title, sub, children }: { title: string; sub?: stri
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-xl border border-dashed border-line p-8 text-center text-sm text-zinc-500">{children}</div>;
+  return <div className="rounded-xl border border-dashed border-line p-8 text-center text-sm text-slate-500">{children}</div>;
 }

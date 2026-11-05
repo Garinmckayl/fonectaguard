@@ -27,7 +27,7 @@ export function ActionButton({ url, body, method, label, busyLabel, className = 
       >
         {busy ? busyLabel ?? "Working…" : label}
       </button>
-      {err && <span role="alert" className="mt-1 text-xs text-red-400">{err}</span>}
+      {err && <span role="alert" className="mt-1 text-xs text-red-600">{err}</span>}
     </span>
   );
 }

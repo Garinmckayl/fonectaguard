@@ -8,6 +8,8 @@ import { matchIdentity } from "./identity";
 import { contentHash, extractFromHtml, extractFromRaw, fetchPage, type Extraction } from "./extract";
 import { canWriteTo, connectorInfo, demoConnector } from "./connectors";
 import { audit, emit, notify } from "./events";
+import { extractBusinessFacts } from "./ai";
+import { fetchTexts, hasTinyFish, webSearch } from "./tinyfish";
 import { displayValue } from "./format";
 import { FIELD_LABELS } from "./compare";
 
@@ -23,7 +25,19 @@ export async function listingLabel(db: DB, listing: Listing): Promise<string> {
     const r = (await db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, listing.externalListingId)).get());
     if (r) return `${r.platform} (simulated)`;
   }
+  if (listing.platform === "web") return new URL(listing.url).hostname.replace(/^www\./, "");
   return connectorInfo(listing.platform)?.label ?? listing.platform;
+}
+
+const factsToRaw = (f: NonNullable<Awaited<ReturnType<typeof extractBusinessFacts>>>, url: string) => ({ name: f.name ?? undefined, address: f.address ?? undefined, phone: f.phone ?? undefined, hours: f.hours ?? undefined, email: f.email ?? undefined, description: f.description ?? undefined, website: url });
+
+async function aiExtract(url: string, target: { name?: string; city?: string }, preText?: string, confidence = 0.75): Promise<Extraction | null> {
+  const text = preText ?? (await fetchTexts([url])).get(url);
+  if (!text) return null;
+  const f = await extractBusinessFacts(text, { ...target, url });
+  if (!f || f.is_target_business === false) return null;
+  const ex = extractFromRaw({ ...factsToRaw(f, url), website: undefined }, url, confidence);
+  return Object.keys(ex).length ? ex : null;
 }
 
 export function canonicalValues(c: Canonical): Partial<Record<FieldName, unknown>> {
@@ -43,7 +57,18 @@ export async function observeListing(db: DB, listing: Listing): Promise<{ extrac
       const page = await fetchPage(listing.url);
       if (!page.ok) return { extraction: null, error: `HTTP ${page.status}` };
       const ex = extractFromHtml(page.html, listing.url);
-      return ex ? { extraction: ex } : { extraction: null, error: "No structured business data found" };
+      if (ex) return { extraction: ex };
+      if (hasTinyFish()) {
+        const loc = (await db.select().from(schema.businessLocations).where(eq(schema.businessLocations.id, listing.locationId)).get())!;
+        const ai = await aiExtract(listing.url, { name: loc.businessName, city: loc.city ?? undefined }, undefined, 0.8);
+        if (ai) return { extraction: ai };
+      }
+      return { extraction: null, error: "No structured business data found" };
+    }
+    if (listing.platform === "web") {
+      const loc = (await db.select().from(schema.businessLocations).where(eq(schema.businessLocations.id, listing.locationId)).get())!;
+      const ai = await aiExtract(listing.url, { name: loc.businessName, city: loc.city ?? undefined });
+      return ai ? { extraction: ai } : { extraction: null, error: "Page no longer shows this business" };
     }
     if (listing.platform === "demo") {
       const raw = await demoConnector.readListing(db, listing.externalListingId!);
@@ -264,8 +289,34 @@ export async function executeScan(db: DB, locationId: string, scanId: string, op
     }
     if (listing.status === "monitoring") monitored.push(listing);
   }
+  // 2b. Live discovery for real (non-demo) workspaces: TinyFish web search → TinyFish fetch → AI extraction → deterministic identity match.
+  const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, loc.organizationId)).get());
+  if (!org?.isDemo && hasTinyFish()) {
+    try {
+      const q = `${loc.businessName} ${loc.city ?? ""}`.trim();
+      ev("searching", `Searching the live web for "${q}" with TinyFish…`);
+      const ownHost = loc.website ? new URL(loc.website).hostname.replace(/^www\./, "") : "";
+      const seen = new Set<string>();
+      const hits = (await webSearch(q)).filter((h) => { const host = new URL(h.url).hostname.replace(/^www\./, ""); if (host === ownHost || seen.has(host)) return false; seen.add(host); return true; }).slice(0, 6);
+      ev("search_results", `Found ${hits.length} candidate pages: ${hits.map((h) => h.site).join(", ")}`, { urls: hits.map((h) => h.url) });
+      const pages = await fetchTexts(hits.map((h) => h.url));
+      await Promise.all(hits.map(async (h) => {
+        const text = pages.get(h.url);
+        if (!text) { ev("source_unavailable", `Could not read ${h.site}`, { url: h.url }); return; }
+        const f = await extractBusinessFacts(text, { name: loc.businessName, city: loc.city ?? undefined, url: h.url });
+        if (!f || f.is_target_business === false || !f.name) { ev("listing_ignored", `Ignored ${h.site}: page is not about ${loc.businessName}.`, { url: h.url }); return; }
+        const m = matchIdentity({ name: loc.businessName, address: addr, phone: ctx.canonical.phone?.value as string, website: loc.website ?? undefined, city: loc.city ?? undefined }, { name: f.name, address: f.address ?? undefined, phone: f.phone ?? undefined, website: f.website ?? undefined });
+        if (m.verdict === "reject") { ev("listing_ignored", `Ignored "${f.name}" on ${h.site} (identity score ${m.score}; likely a different business).`, { url: h.url, signals: m.signals }); return; }
+        const { listing, created } = await upsertListing(db, loc, "web", h.url, null, m.score, m.verdict === "match" ? "monitoring" : "needs_review", scanId);
+        if (created) ev("listing_discovered", `Discovered "${f.name}" on ${h.site} (identity ${Math.round(m.score * 100)}%: ${m.signals.join(", ")}).`, { listingId: listing.id, url: h.url });
+        if (listing.status === "monitoring" && !monitored.find((x) => x.id === listing.id)) monitored.push(listing);
+      }));
+    } catch (e) {
+      ev("source_unavailable", `Live web discovery failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   // Include previously known listings that were not re-discovered.
-  for (const l of (await db.select().from(schema.listings).where(and(eq(schema.listings.locationId, loc.id), eq(schema.listings.status, "monitoring"), eq(schema.listings.platform, "demo"))).all())) if (!monitored.find((m) => m.id === l.id)) monitored.push(l);
+  for (const l of (await db.select().from(schema.listings).where(and(eq(schema.listings.locationId, loc.id), eq(schema.listings.status, "monitoring"), inArray(schema.listings.platform, ["demo", "web"]))).all())) if (!monitored.find((m) => m.id === l.id)) monitored.push(l);
 
   // 3. Extract + compare each monitored listing
   for (const l of monitored) {

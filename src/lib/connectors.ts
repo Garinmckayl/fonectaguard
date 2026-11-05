@@ -18,6 +18,7 @@ export interface ConnectorInfo {
 export const CATALOG: ConnectorInfo[] = [
   { platform: "demo", label: "Demo Directory (simulated)", state: "demo_connector", capabilities: ["read", "write", "verify"], note: "Explicitly simulated platform backed by persisted records. Not a real third-party integration." },
   { platform: "website", label: "Official website", state: "read_only", capabilities: ["read"], note: "Public page fetched and parsed (JSON-LD). Read-only; corrections require manual CMS edits." },
+  { platform: "web", label: "Web listing", state: "read_only", capabilities: [], note: "Found via live web search (TinyFish) and read with AI extraction. Corrections are submitted manually by the owner." },
   { platform: "google", label: "Google Business Profile", state: "requires_partner_access", capabilities: [], note: "Requires Business Profile API approval. OAuth not configured; Google Sign-In would not grant management rights.", manageUrl: "https://business.google.com" },
   { platform: "facebook", label: "Facebook Page", state: "setup_required", capabilities: [], note: "Needs META_APP_ID/META_APP_SECRET and approved Page permissions (Phase 5).", manageUrl: "https://business.facebook.com" },
   { platform: "instagram", label: "Instagram Business", state: "setup_required", capabilities: [], note: "Needs Meta app setup (Phase 5)." },

@@ -8,7 +8,8 @@ import { LiveScan } from "@/components/live-scan";
 import { FIELD_LABELS, type FieldName } from "@/lib/compare";
 import { connectorInfo } from "@/lib/connectors";
 
-export default async function Overview() {
+export default async function Overview(props: { searchParams: Promise<{ scan?: string }> }) {
+  const sp = await props.searchParams;
   const s = (await getSession())!;
   const d = await dashboardData(await getDb(), s.orgId);
   if (!d) return <Empty>No business yet. <Link className="text-accent underline" href="/onboarding">Create one</Link>.</Empty>;
@@ -23,11 +24,11 @@ export default async function Overview() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Badge tone={tone}><span className="pulse-dot mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />{health.status === "insufficient" ? "Awaiting first scan" : "Monitoring active"}</Badge>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">{headline}</h1>
-            <p className="mt-2 max-w-xl text-sm text-zinc-400">FonectaGuard continuously monitors your online presence and catches inaccuracies before customers do.</p>
-            <p className="mt-2 text-xs text-zinc-500">Last successful scan: {lastScan ? ago(lastScan.completedAt) : "never"} · Monitoring: {d.loc.monitoringFrequency}</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{headline}</h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-500">FonectaGuard continuously monitors your online presence and catches inaccuracies before customers do.</p>
+            <p className="mt-2 text-xs text-slate-500">Last successful scan: {lastScan ? ago(lastScan.completedAt) : "never"} · Monitoring: {d.loc.monitoringFrequency}</p>
           </div>
-          <LiveScan locationId={d.loc.id} />
+          <LiveScan locationId={d.loc.id} autoStart={sp.scan === "1"} />
         </div>
       </section>
 
@@ -40,15 +41,15 @@ export default async function Overview() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card lg:col-span-2">
-          <h2 className="mb-3 font-medium text-white">Presence health history</h2>
+          <h2 className="mb-3 font-medium text-slate-900">Presence health history</h2>
           <HealthChart data={snapshots.map((x) => ({ t: x.recordedAt, score: x.score }))} />
         </section>
         <section className="card">
-          <h2 className="mb-3 font-medium text-white">Pending approvals ({approvals.length})</h2>
-          {approvals.length === 0 ? <p className="text-sm text-zinc-500">Nothing waiting for you.</p> : (
+          <h2 className="mb-3 font-medium text-slate-900">Pending approvals ({approvals.length})</h2>
+          {approvals.length === 0 ? <p className="text-sm text-slate-500">Nothing waiting for you.</p> : (
             <ul className="space-y-2 text-sm">
               {approvals.slice(0, 5).map((p) => (
-                <li key={p.id}><Link href="/dashboard/approvals" className="text-zinc-300 hover:text-accent">{connectorInfo(p.targetPlatform)?.label ?? p.targetPlatform}: {FIELD_LABELS[p.proposedChangeJson.field as FieldName]} → {String(p.proposedChangeJson.newValue)}</Link></li>
+                <li key={p.id}><Link href="/dashboard/approvals" className="text-slate-700 hover:text-accent">{connectorInfo(p.targetPlatform)?.label ?? p.targetPlatform}: {FIELD_LABELS[p.proposedChangeJson.field as FieldName]} → {String(p.proposedChangeJson.newValue)}</Link></li>
               ))}
             </ul>
           )}
@@ -57,12 +58,12 @@ export default async function Overview() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card">
-          <h2 className="mb-3 font-medium text-white">Highest-priority discrepancies</h2>
-          {active.length === 0 ? <p className="text-sm text-zinc-500">No active discrepancies.</p> : (
+          <h2 className="mb-3 font-medium text-slate-900">Highest-priority discrepancies</h2>
+          {active.length === 0 ? <p className="text-sm text-slate-500">No active discrepancies.</p> : (
             <ul className="space-y-3">
               {bySeverity(active).slice(0, 5).map((x) => (
                 <li key={x.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span>{FIELD_LABELS[x.fieldName as FieldName]} <span className="text-zinc-500">· {Math.round(x.confidence * 100)}% confidence</span></span>
+                  <span>{FIELD_LABELS[x.fieldName as FieldName]} <span className="text-slate-500">· {Math.round(x.confidence * 100)}% confidence</span></span>
                   <SeverityBadge s={x.severity} />
                 </li>
               ))}
@@ -70,10 +71,10 @@ export default async function Overview() {
           )}
         </section>
         <section className="card">
-          <h2 className="mb-3 flex justify-between font-medium text-white">Recent agent activity <Link className="text-xs text-accent" href="/dashboard/activity">View all</Link></h2>
-          {events.length === 0 ? <p className="text-sm text-zinc-500">No activity yet.</p> : (
+          <h2 className="mb-3 flex justify-between font-medium text-slate-900">Recent agent activity <Link className="text-xs text-accent" href="/dashboard/activity">View all</Link></h2>
+          {events.length === 0 ? <p className="text-sm text-slate-500">No activity yet.</p> : (
             <ul className="space-y-2 text-sm">
-              {events.slice(0, 6).map((e) => <li key={e.id} className="flex justify-between gap-3"><span className="text-zinc-300">{e.message}</span><span className="shrink-0 text-xs text-zinc-500">{ago(e.createdAt)}</span></li>)}
+              {events.slice(0, 6).map((e) => <li key={e.id} className="flex justify-between gap-3"><span className="text-slate-700">{e.message}</span><span className="shrink-0 text-xs text-slate-500">{ago(e.createdAt)}</span></li>)}
             </ul>
           )}
         </section>
@@ -85,9 +86,9 @@ export default async function Overview() {
 function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="card fade-in">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
-      <p className="mt-1 text-xs text-zinc-400">{sub}</p>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{sub}</p>
     </div>
   );
 }

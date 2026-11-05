@@ -13,11 +13,11 @@ export default function NorthstarSite() {
   return (
     <main className="mx-auto max-w-xl px-6 py-16">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
-      <p className="text-xs text-amber-300">Fictional demo business — not real.</p>
-      <h1 className="mt-2 text-3xl font-semibold text-white">{DEMO.name}</h1>
-      <p className="mt-4 text-zinc-300">{DEMO.street}, {DEMO.city}</p>
-      <p className="text-zinc-300">Phone: {DEMO.phone}</p>
-      <p className="text-zinc-300">Open daily {DEMO.hours}</p>
+      <p className="text-xs text-amber-600">Fictional demo business — not real.</p>
+      <h1 className="mt-2 text-3xl font-semibold text-slate-900">{DEMO.name}</h1>
+      <p className="mt-4 text-slate-700">{DEMO.street}, {DEMO.city}</p>
+      <p className="text-slate-700">Phone: {DEMO.phone}</p>
+      <p className="text-slate-700">Open daily {DEMO.hours}</p>
     </main>
   );
 }

@@ -15,7 +15,9 @@ Working end to end, locally, on Cloudflare Workers (OpenNext) with D1 (Drizzle),
 - Dashboard, Listings, Issues, Resolution Center, Activity, Connections (truthful capability states), Settings, Onboarding
 - Cron-style entry point `GET /api/cron` (Bearer `CRON_SECRET`) that starts scans for locations past `next_scan_at`
 
-**Not built yet (honest list):** TinyFish Search/Fetch/Web Agent, OpenRouter/AI SDK extraction and chat, real OAuth (Google/Meta), R2 evidence storage, Cloudflare Workflows (repairs run inline in the approve request), notification preferences UI, email. Discovery currently reads the demo directory index; the repair lifecycle in `src/lib/repair.ts` is written as persisted steps so it maps onto Workflow steps. Connections for Google/Meta/Apple/Bing/Yelp/Fonecta are shown as unavailable (partner access / setup required), never as fake connections.
+**Live integrations:** TinyFish Search + Fetch discover and read real web listings; OpenRouter extracts structured facts (output is Zod-validated, page text is treated as data) and powers the grounded assistant; identity matching and comparison stay deterministic. Visitors can start a real workspace from the login page. Secrets: `TINYFISH_API_KEY`, `OPENROUTER_API_KEY` (Worker secrets / `.dev.vars`).
+
+**Not built yet (honest list):** TinyFish Web Agent, real OAuth (Google/Meta), R2 evidence storage, Cloudflare Workflows (repairs run inline in the approve request), notification preferences UI, email. Discovery currently reads the demo directory index; the repair lifecycle in `src/lib/repair.ts` is written as persisted steps so it maps onto Workflow steps. Connections for Google/Meta/Apple/Bing/Yelp/Fonecta are shown as unavailable (partner access / setup required), never as fake connections.
 
 ## Run / deploy
 
