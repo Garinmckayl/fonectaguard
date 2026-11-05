@@ -55,6 +55,8 @@ export async function approveRepair(db: DB, a: { proposalId: string; orgId: stri
   if (!canWrite(a.role)) throw new RepairError(403, "Insufficient permissions");
   if (a.editedValue !== undefined) await editProposal(db, { ...a, newValue: a.editedValue });
   const { p, d, loc, listing } = await load(db, a.proposalId, a.orgId);
+  const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, a.orgId)).get());
+  if (!org?.isDemo && loc.verificationStatus !== "verified") throw new RepairError(403, "Verify ownership of your domain (Settings) before approving changes.");
   const claimed = (await db.update(schema.repairProposals).set({ status: "approved", approvedBy: a.userId, approvedAt: now() }).where(and(eq(schema.repairProposals.id, p.id), eq(schema.repairProposals.status, "awaiting_approval"))).run());
   if (changes(claimed) !== 1) throw new RepairError(409, `Proposal is not awaiting approval (status: ${p.status})`);
   const fresh = (await db.select().from(schema.repairProposals).where(eq(schema.repairProposals.id, p.id)).get())!;

@@ -48,7 +48,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </div>
       </aside>
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1">
+        {!s.isDemo && loc && loc.verificationStatus !== "verified" && (
+          <Link href="/dashboard/settings" className="mb-4 block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100">Verify you own {loc.website ? new URL(loc.website).hostname : "this domain"} to unlock approvals →</Link>
+        )}
+        {children}
+      </main>
       <Chat />
     </div>
   );

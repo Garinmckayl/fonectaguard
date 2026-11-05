@@ -12,6 +12,7 @@
     "consumers": [{ "queue": "fonectaguard-scans", "max_batch_size": 1, "max_retries": 2 }]
   },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "fonectaguard" }],
+  "routes": [{ "pattern": "fonectaguard.arcumet.com", "custom_domain": true }],
   "triggers": { "crons": ["*/15 * * * *"] },
-  "vars": { "APP_URL": "https://fonectaguard.searchome.workers.dev" }
+  "vars": { "APP_URL": "https://fonectaguard.arcumet.com" }
 }

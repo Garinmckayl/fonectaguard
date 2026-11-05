@@ -3,6 +3,8 @@ import { getDb } from "@/lib/db";
 import { getLocation } from "@/lib/queries";
 import { loadCanonical } from "@/lib/canonical";
 import { displayValue } from "@/lib/format";
+import { VerifyDomain } from "@/components/verify-domain";
+import { verificationToken } from "@/lib/verify";
 import { Badge, Empty, PageHeader } from "@/components/ui";
 import { FIELD_LABELS, type FieldName } from "@/lib/compare";
 
@@ -15,6 +17,12 @@ export default async function Settings() {
   return (
     <div>
       <PageHeader title="Source of truth" sub="Only owner-verified values are treated as authoritative. AI suggestions never become canonical on their own." />
+      {!s.isDemo && (
+        <div className="card mb-4">
+          <h2 className="mb-3 flex items-center gap-2 font-medium text-slate-900">Domain ownership {loc.verificationStatus === "verified" ? <Badge tone="teal">Verified</Badge> : <Badge tone="amber">Not verified</Badge>}</h2>
+          {loc.verificationStatus === "verified" ? <p className="text-sm text-slate-600">Ownership of your domain is confirmed. You can approve corrections.</p> : loc.website ? <VerifyDomain locationId={loc.id} host={new URL(loc.website).hostname.replace(/^www\./, "")} token={verificationToken(loc.id)} /> : null}
+        </div>
+      )}
       <div className="card">
         <table className="w-full text-left text-sm">
           <thead className="text-xs uppercase text-slate-500"><tr><th className="py-2">Field</th><th>Verified value</th><th>Version</th><th>Verified</th></tr></thead>

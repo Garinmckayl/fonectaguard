@@ -38,6 +38,6 @@ export async function verifyProfile(db: DB, locationId: string, userId: string, 
     (await db.insert(schema.canonicalFieldVersions).values({ id: newId(), locationId, fieldName: k, normalizedValueJson: value, verifiedBy: userId, verificationSource: source, verifiedAt: now(), version: (latest?.version ?? 0) + 1 }).run());
     written.push(k);
   }
-  if (written.length) (await db.update(schema.businessLocations).set({ verificationStatus: "verified", updatedAt: now() }).where(eq(schema.businessLocations.id, locationId)).run());
+  if (written.length) (await db.update(schema.businessLocations).set({ updatedAt: now() }).where(eq(schema.businessLocations.id, locationId)).run());
   return written;
 }
