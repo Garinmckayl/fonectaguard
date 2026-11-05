@@ -8,10 +8,10 @@ import { FIELD_LABELS, type FieldName } from "@/lib/compare";
 
 export default async function Settings() {
   const s = (await getSession())!;
-  const db = getDb();
-  const loc = getLocation(db, s.orgId);
+  const db = await getDb();
+  const loc = await getLocation(db, s.orgId);
   if (!loc) return <Empty>No business yet.</Empty>;
-  const canon = loadCanonical(db, loc.id);
+  const canon = await loadCanonical(db, loc.id);
   return (
     <div>
       <PageHeader title="Source of truth" sub="Only owner-verified values are treated as authoritative. AI suggestions never become canonical on their own." />

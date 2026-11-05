@@ -6,7 +6,7 @@ import { post } from "@/components/actions";
 const FIELDS = [["businessName", "Business name", true], ["website", "Website (https://…)", true], ["city", "City", true], ["address", "Street address"], ["phone", "Main phone"], ["email", "Business email"], ["hours", "Opening hours (e.g. Mon-Sun 08:00-22:00)"]] as const;
 const CONFIRMABLE: Record<string, string> = { businessName: "name", website: "website", address: "address", phone: "phone", email: "email", hours: "hours" };
 
-export default function Onboarding() {
+export default async function Onboarding() {
   const router = useRouter();
   const [v, setV] = useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({ businessName: true, website: true });

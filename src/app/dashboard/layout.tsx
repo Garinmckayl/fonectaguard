@@ -22,7 +22,7 @@ const NAV = [
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   if (!s) redirect("/login");
-  const loc = getLocation(getDb(), s.orgId);
+  const loc = await getLocation(await getDb(), s.orgId);
   return (
     <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 md:flex-row">
       <aside className="md:w-56 md:shrink-0">

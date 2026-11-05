@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export async function post(url: string, body?: unknown, method = "POST") {
   const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({})) as any;
   if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
   return data;
 }

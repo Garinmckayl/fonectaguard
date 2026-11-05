@@ -53,11 +53,16 @@ export function extractFromHtml(html: string, sourceUrl: string): Extraction | n
   return null;
 }
 
+let selfFetcher: { fetch: typeof fetch } | null = null;
+/** Workers cannot fetch their own public URL; route same-origin requests through a service binding. */
+export function setSelfFetcher(f: { fetch: typeof fetch } | null) { selfFetcher = f; }
+
 export async function fetchPage(url: string, timeoutMs = 8000): Promise<{ ok: boolean; status: number; html: string }> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctl.signal, headers: { "user-agent": "FonectaGuardBot/0.1" }, redirect: "follow" });
+    const useSelf = selfFetcher && process.env.APP_URL && new URL(url).origin === new URL(process.env.APP_URL).origin;
+    const res = await (useSelf ? selfFetcher!.fetch.bind(selfFetcher) : fetch)(url, { signal: ctl.signal, headers: { "user-agent": "FonectaGuardBot/0.1" }, redirect: "follow" });
     const text = (await res.text()).slice(0, 500_000);
     return { ok: res.ok, status: res.status, html: text };
   } finally {

@@ -10,7 +10,7 @@ import { connectorInfo } from "@/lib/connectors";
 
 export default async function Overview() {
   const s = (await getSession())!;
-  const d = dashboardData(getDb(), s.orgId);
+  const d = await dashboardData(await getDb(), s.orgId);
   if (!d) return <Empty>No business yet. <Link className="text-accent underline" href="/onboarding">Create one</Link>.</Empty>;
   const { health, active, resolved, listings, snapshots, lastScan, approvals, events } = d;
   const writable = listings.filter((l) => connectorInfo(l.platform)?.capabilities.includes("write")).length;

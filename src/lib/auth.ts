@@ -25,21 +25,21 @@ export const sessionCookie = { name: COOKIE, options: { httpOnly: true, sameSite
 export interface Session { userId: string; userName: string; orgId: string; isDemo: boolean; role: string }
 
 export async function getSession(): Promise<Session | null> {
-  const uid = verifySessionToken(cookies().get(COOKIE)?.value);
+  const uid = verifySessionToken((await cookies()).get(COOKIE)?.value);
   if (!uid) return null;
-  const db = getDb();
-  const user = db.select().from(schema.users).where(eq(schema.users.id, uid)).get();
+  const db = await getDb();
+  const user = (await db.select().from(schema.users).where(eq(schema.users.id, uid)).get());
   if (!user) return null;
-  const m = db.select().from(schema.organizationMembers).where(eq(schema.organizationMembers.userId, uid)).get();
+  const m = (await db.select().from(schema.organizationMembers).where(eq(schema.organizationMembers.userId, uid)).get());
   if (!m) return null;
-  const org = db.select().from(schema.organizations).where(eq(schema.organizations.id, m.organizationId)).get();
+  const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, m.organizationId)).get());
   if (!org) return null;
   return { userId: uid, userName: user.name, orgId: org.id, isDemo: !!org.isDemo, role: m.role };
 }
 
 /** CSRF defence for cookie-authenticated mutations: require same-origin Origin/Host. */
-export function assertSameOrigin() {
-  const h = headers();
+export async function assertSameOrigin() {
+  const h = await headers();
   const origin = h.get("origin");
   if (!origin) return;
   const host = h.get("x-forwarded-host") ?? h.get("host");
@@ -51,7 +51,7 @@ export class HttpError extends Error {
 }
 
 export async function requireSession(mutating = false): Promise<Session> {
-  if (mutating) assertSameOrigin();
+  if (mutating) await assertSameOrigin();
   const s = await getSession();
   if (!s) throw new HttpError(401, "Not authenticated");
   return s;

@@ -17,14 +17,15 @@ const TABS: Record<string, { label: string; statuses: string[] }> = {
   failed: { label: "Failed", statuses: ["failed"] },
 };
 
-export default async function Approvals({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function Approvals(props: { searchParams: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams;
   const s = (await getSession())!;
-  const db = getDb();
-  const loc = getLocation(db, s.orgId);
+  const db = await getDb();
+  const loc = await getLocation(db, s.orgId);
   if (!loc) return <Empty>No business yet.</Empty>;
   const tab = TABS[searchParams.tab ?? ""] ? searchParams.tab! : "needs";
-  const discs = new Map(db.select().from(schema.discrepancies).where(eq(schema.discrepancies.locationId, loc.id)).all().map((d) => [d.id, d]));
-  const all = discs.size ? db.select().from(schema.repairProposals).where(inArray(schema.repairProposals.discrepancyId, [...discs.keys()])).orderBy(desc(schema.repairProposals.createdAt)).all() : [];
+  const discs = new Map((await db.select().from(schema.discrepancies).where(eq(schema.discrepancies.locationId, loc.id)).all()).map((d) => [d.id, d]));
+  const all = discs.size ? (await db.select().from(schema.repairProposals).where(inArray(schema.repairProposals.discrepancyId, [...discs.keys()])).orderBy(desc(schema.repairProposals.createdAt)).all()) : [];
   const counts = Object.fromEntries(Object.entries(TABS).map(([k, t]) => [k, all.filter((p) => t.statuses.includes(p.status)).length]));
   const rows = all.filter((p) => TABS[tab].statuses.includes(p.status));
   return (
@@ -37,10 +38,10 @@ export default async function Approvals({ searchParams }: { searchParams: { tab?
       </div>
       {rows.length === 0 ? <Empty>No proposals in this tab.</Empty> : (
         <ul className="space-y-4">
-          {rows.map((p) => {
+          {await Promise.all(rows.map(async (p) => {
             const c = p.proposedChangeJson, ev = p.evidenceJson as { listingUrl?: string; observed?: { excerpt?: string; observedAt?: number }; corroboration?: { source: string; url: string; value: string }[]; manageUrl?: string | null };
             const label = connectorInfo(p.targetPlatform)?.label ?? p.targetPlatform;
-            const attempts = db.select().from(schema.repairAttempts).where(eq(schema.repairAttempts.proposalId, p.id)).all();
+            const attempts = (await db.select().from(schema.repairAttempts).where(eq(schema.repairAttempts.proposalId, p.id)).all());
             return (
               <li key={p.id} className="card fade-in">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -68,7 +69,7 @@ export default async function Approvals({ searchParams }: { searchParams: { tab?
                 {p.approvedAt && <p className="mt-3 text-xs text-zinc-500">Approved by {p.approvedBy === s.userId ? s.userName : p.approvedBy} {ago(p.approvedAt)}{attempts.length ? ` · ${attempts.length} execution attempt(s): ${attempts.map((a) => a.status).join(", ")}` : ""}</p>}
               </li>
             );
-          })}
+          }))}
         </ul>
       )}
     </div>

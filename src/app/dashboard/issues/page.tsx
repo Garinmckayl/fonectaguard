@@ -9,17 +9,18 @@ import { FIELD_LABELS, type FieldName } from "@/lib/compare";
 import { connectorInfo } from "@/lib/connectors";
 import { displayValue } from "@/lib/format";
 
-export default async function Issues({ searchParams }: { searchParams: { severity?: string; tab?: string } }) {
+export default async function Issues(props: { searchParams: Promise<{ severity?: string; tab?: string }> }) {
+  const searchParams = await props.searchParams;
   const s = (await getSession())!;
-  const db = getDb();
-  const loc = getLocation(db, s.orgId);
+  const db = await getDb();
+  const loc = await getLocation(db, s.orgId);
   if (!loc) return <Empty>No business yet.</Empty>;
   const tab = searchParams.tab === "closed" ? "closed" : "active";
-  let rows = db.select().from(schema.discrepancies).where(and(eq(schema.discrepancies.locationId, loc.id), tab === "closed" ? inArray(schema.discrepancies.status, ["resolved", "dismissed"]) : undefined)).orderBy(desc(schema.discrepancies.firstDetectedAt)).all();
+  let rows = (await db.select().from(schema.discrepancies).where(and(eq(schema.discrepancies.locationId, loc.id), tab === "closed" ? inArray(schema.discrepancies.status, ["resolved", "dismissed"]) : undefined)).orderBy(desc(schema.discrepancies.firstDetectedAt)).all());
   if (tab === "active") rows = rows.filter((r) => !["resolved", "dismissed"].includes(r.status));
   if (searchParams.severity) rows = rows.filter((r) => r.severity === searchParams.severity);
   rows = bySeverity(rows);
-  const listings = new Map(db.select().from(schema.listings).where(eq(schema.listings.locationId, loc.id)).all().map((l) => [l.id, l]));
+  const listings = new Map((await db.select().from(schema.listings).where(eq(schema.listings.locationId, loc.id)).all()).map((l) => [l.id, l]));
   return (
     <div>
       <PageHeader title="Issues" sub="Validated discrepancies between your verified profile and published information.">

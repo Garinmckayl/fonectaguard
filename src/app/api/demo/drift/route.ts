@@ -12,9 +12,9 @@ const Body = z.object({ slug: z.string(), field: z.enum(["phone", "hours", "addr
 export const POST = route(true, async ({ s, db, req }) => {
   if (!s.isDemo) throw new HttpError(403, "Demo only");
   const b = Body.parse(await req.json());
-  const row = db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, b.slug)).get();
+  const row = (await db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, b.slug)).get());
   if (!row || row.organizationId !== s.orgId) throw new HttpError(404, "Not found");
-  db.update(schema.demoListings).set({ [b.field]: b.value, updatedAt: now() }).where(eq(schema.demoListings.slug, b.slug)).run();
-  emit(db, s.orgId, null, null, "demo_drift", `[Demo] Simulated external change: ${row.platform} ${b.field} → "${b.value}".`);
+  (await db.update(schema.demoListings).set({ [b.field]: b.value, updatedAt: now() }).where(eq(schema.demoListings.slug, b.slug)).run());
+  await emit(db, s.orgId, null, null, "demo_drift", `[Demo] Simulated external change: ${row.platform} ${b.field} → "${b.value}".`);
   return { ok: true };
 });

@@ -1,0 +1,17 @@
+{
+  "name": "fonectaguard",
+  "main": "worker.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "fonectaguard", "database_id": "b9796d3a-22e6-47b8-a6c1-b10334a1be59", "migrations_dir": "drizzle" }
+  ],
+  "queues": {
+    "producers": [{ "binding": "SCAN_QUEUE", "queue": "fonectaguard-scans" }],
+    "consumers": [{ "queue": "fonectaguard-scans", "max_batch_size": 1, "max_retries": 2 }]
+  },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "fonectaguard" }],
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "vars": { "APP_URL": "https://fonectaguard.searchome.workers.dev" }
+}

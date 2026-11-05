@@ -8,7 +8,7 @@ const TONE: Record<string, string> = { demo_connector: "amber", read_only: "blue
 
 export default async function Connections() {
   const s = (await getSession())!;
-  const conns = getDb().select().from(schema.connections).where(eq(schema.connections.organizationId, s.orgId)).all();
+  const conns = await (await getDb()).select().from(schema.connections).where(eq(schema.connections.organizationId, s.orgId)).all();
   return (
     <div>
       <PageHeader title="Connections" sub="Accurate capability states. Integrations that need partner approval or credentials are not faked." />

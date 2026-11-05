@@ -4,7 +4,9 @@
 
 ## Status (Phase 1–3 MVP)
 
-Working end to end, locally, with a persisted SQLite database (Drizzle schema, D1-compatible):
+Working end to end, locally, on Cloudflare Workers (OpenNext) with D1 (Drizzle), a Queue for scans and a cron trigger. Live: https://fonectaguard.searchome.workers.dev
+
+
 
 - Demo session, organization, verified canonical profile (versioned fields; only owner-confirmed values are authoritative)
 - Scan engine: official-website fetch (JSON-LD, Zod-validated, page content treated as data only), directory discovery, deterministic identity matching (rejects look-alike businesses), deterministic field comparison (phone/address/hours/…), transparent Presence Health score, discrepancy dedupe
@@ -13,18 +15,26 @@ Working end to end, locally, with a persisted SQLite database (Drizzle schema, D
 - Dashboard, Listings, Issues, Resolution Center, Activity, Connections (truthful capability states), Settings, Onboarding
 - Cron-style entry point `GET /api/cron` (Bearer `CRON_SECRET`) that starts scans for locations past `next_scan_at`
 
-**Not built yet (honest list):** TinyFish Search/Fetch/Web Agent, OpenRouter/AI SDK extraction and chat, real OAuth (Google/Meta), R2 evidence storage, Cloudflare Workers/Queues/Workflows/Cron deployment, notification preferences UI, email. Discovery currently reads the demo directory index; the repair lifecycle in `src/lib/repair.ts` is written as persisted steps so it maps onto Workflow steps. Connections for Google/Meta/Apple/Bing/Yelp/Fonecta are shown as unavailable (partner access / setup required), never as fake connections.
+**Not built yet (honest list):** TinyFish Search/Fetch/Web Agent, OpenRouter/AI SDK extraction and chat, real OAuth (Google/Meta), R2 evidence storage, Cloudflare Workflows (repairs run inline in the approve request), notification preferences UI, email. Discovery currently reads the demo directory index; the repair lifecycle in `src/lib/repair.ts` is written as persisted steps so it maps onto Workflow steps. Connections for Google/Meta/Apple/Bing/Yelp/Fonecta are shown as unavailable (partner access / setup required), never as fake connections.
 
-## Run
+## Run / deploy
 
 ```bash
-cp .env.example .env.local   # optional; defaults work
 npm install
-npm run dev                  # http://localhost:3000
-npm test
+npm test                     # in-memory sqlite stands in for D1
+npm run dev                  # Next dev with local D1 bindings via wrangler
 ```
 
-Set `APP_URL` to the URL the server is reachable at (the scanner fetches the demo business site from it). Data lives in `./data/fonectaguard.db`; migrations in `drizzle/` apply automatically (`npm run db:generate` after schema changes).
+Deploy (needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`):
+
+```bash
+npx wrangler d1 create fonectaguard && npx wrangler queues create fonectaguard-scans   # then put the D1 id in wrangler.jsonc
+npx wrangler d1 migrations apply fonectaguard --remote
+npx wrangler secret put AUTH_SECRET && npx wrangler secret put CRON_SECRET
+npx opennextjs-cloudflare build && npx wrangler deploy
+```
+
+Set `APP_URL` in `wrangler.jsonc` to the deployed URL (the scanner fetches the demo site from it through a self service binding). `worker.ts` adds the cron `scheduled` and Queue `queue` handlers.
 
 ## Demo script
 

@@ -11,16 +11,17 @@ import { canonicalValues, latestExtraction, observedValues } from "@/lib/scan";
 import { loadCanonical } from "@/lib/canonical";
 import { displayValue } from "@/lib/format";
 
-export default async function Listings({ searchParams }: { searchParams: { id?: string; platform?: string; status?: string } }) {
+export default async function Listings(props: { searchParams: Promise<{ id?: string; platform?: string; status?: string }> }) {
+  const searchParams = await props.searchParams;
   const s = (await getSession())!;
-  const db = getDb();
-  const loc = getLocation(db, s.orgId);
+  const db = await getDb();
+  const loc = await getLocation(db, s.orgId);
   if (!loc) return <Empty>No business yet.</Empty>;
-  let rows = loadListingsWithStats(db, loc.id);
+  let rows = await loadListingsWithStats(db, loc.id);
   if (searchParams.platform) rows = rows.filter((r) => r.platform === searchParams.platform);
   if (searchParams.status === "issues") rows = rows.filter((r) => r.discrepancies.length);
   if (searchParams.status === "healthy") rows = rows.filter((r) => !r.discrepancies.length);
-  const platforms = [...new Set(loadListingsWithStats(db, loc.id).map((r) => r.platform))];
+  const platforms = [...new Set((await loadListingsWithStats(db, loc.id)).map((r) => r.platform))];
   const selected = searchParams.id ? rows.find((r) => r.id === searchParams.id) : undefined;
 
   return (
@@ -59,11 +60,11 @@ export default async function Listings({ searchParams }: { searchParams: { id?: 
   );
 }
 
-function Detail({ listingId, locId, isDemo }: { listingId: string; locId: string; isDemo: boolean }) {
-  const db = getDb();
-  const l = db.select().from(schema.listings).where(eq(schema.listings.id, listingId)).get()!;
-  const ex = latestExtraction(db, l.id);
-  const comps = ex ? compareAll(canonicalValues(loadCanonical(db, locId)), observedValues(ex)) : [];
+async function Detail({ listingId, locId, isDemo }: { listingId: string; locId: string; isDemo: boolean }) {
+  const db = await getDb();
+  const l = (await db.select().from(schema.listings).where(eq(schema.listings.id, listingId)).get())!;
+  const ex = await latestExtraction(db, l.id);
+  const comps = ex ? compareAll(canonicalValues(await loadCanonical(db, locId)), observedValues(ex)) : [];
   const canDrift = isDemo && l.platform === "demo" && l.externalListingId;
   return (
     <section className="card fade-in mt-6">

@@ -4,8 +4,9 @@ import { getDb, schema } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function DemoListing({ params }: { params: { slug: string } }) {
-  const r = getDb().select().from(schema.demoListings).where(eq(schema.demoListings.slug, params.slug)).get();
+export default async function DemoListing(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
+  const r = await (await getDb()).select().from(schema.demoListings).where(eq(schema.demoListings.slug, params.slug)).get();
   if (!r) notFound();
   return (
     <main className="mx-auto max-w-xl px-6 py-16">

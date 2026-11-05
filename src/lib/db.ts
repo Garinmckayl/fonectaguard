@@ -1,24 +1,34 @@
-import Database from "better-sqlite3";
-import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import fs from "fs";
-import path from "path";
+import { drizzle, type DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "./schema";
+import { setSelfFetcher } from "./extract";
 
-export type DB = BetterSQLite3Database<typeof schema>;
-const g = globalThis as unknown as { __fgdb?: DB };
+export type DB = DrizzleD1Database<typeof schema>;
 
-export function openDb(file = process.env.DATABASE_FILE ?? "./data/fonectaguard.db"): DB {
-  if (file !== ":memory:") fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-  const sqlite = new Database(file);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("busy_timeout = 5000");
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
-  return db;
+export interface CfEnv {
+  DB: D1Database;
+  SCAN_QUEUE?: Queue<ScanJob>;
+  WORKER_SELF_REFERENCE?: Fetcher;
+}
+export interface ScanJob { locationId: string; scanId: string; paceMs: number; trigger: string }
+
+export function dbFromEnv(env: CfEnv): DB {
+  if (env.WORKER_SELF_REFERENCE) setSelfFetcher(env.WORKER_SELF_REFERENCE);
+  return drizzle(env.DB, { schema });
 }
 
-export function getDb(): DB {
-  return (g.__fgdb ??= openDb());
+export async function getCfEnv(): Promise<CfEnv> {
+  const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+  return (await getCloudflareContext({ async: true })).env as unknown as CfEnv;
+}
+
+/** D1 handle for the current request. */
+export async function getDb(): Promise<DB> {
+  return dbFromEnv(await getCfEnv());
+}
+
+/** Returns the number of rows changed by a write (D1 and better-sqlite3 report it differently). */
+export function changes(r: unknown): number {
+  const x = r as { meta?: { changes?: number }; changes?: number };
+  return x.meta?.changes ?? x.changes ?? 0;
 }
 export { schema };

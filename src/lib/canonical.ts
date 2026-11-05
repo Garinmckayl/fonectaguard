@@ -7,8 +7,8 @@ import { normalizePhone, normalizeUrl, parseHours } from "./normalize";
 export interface CanonicalField { value: unknown; versionId: string; version: number; verifiedAt: number }
 export type Canonical = Partial<Record<FieldName, CanonicalField>>;
 
-export function loadCanonical(db: DB, locationId: string): Canonical {
-  const rows = db.select().from(schema.canonicalFieldVersions).where(eq(schema.canonicalFieldVersions.locationId, locationId)).orderBy(desc(schema.canonicalFieldVersions.version)).all();
+export async function loadCanonical(db: DB, locationId: string): Promise<Canonical> {
+  const rows = (await db.select().from(schema.canonicalFieldVersions).where(eq(schema.canonicalFieldVersions.locationId, locationId)).orderBy(desc(schema.canonicalFieldVersions.version)).all());
   const out: Canonical = {};
   for (const r of rows) {
     const f = r.fieldName as FieldName;
@@ -28,16 +28,16 @@ export function normalizeCanonicalValue(field: FieldName, raw: string): unknown 
 }
 
 /** Records owner-verified canonical values as new versions. AI suggestions never reach here without explicit confirmation. */
-export function verifyProfile(db: DB, locationId: string, userId: string, fields: Partial<Record<FieldName, string>>, source = "owner_confirmed") {
+export async function verifyProfile(db: DB, locationId: string, userId: string, fields: Partial<Record<FieldName, string>>, source = "owner_confirmed") {
   const written: FieldName[] = [];
   for (const [k, raw] of Object.entries(fields) as [FieldName, string][]) {
     const value = normalizeCanonicalValue(k, raw);
     if (value === null) throw new Error(`Invalid value for ${k}`);
-    const latest = db.select().from(schema.canonicalFieldVersions).where(and(eq(schema.canonicalFieldVersions.locationId, locationId), eq(schema.canonicalFieldVersions.fieldName, k))).orderBy(desc(schema.canonicalFieldVersions.version)).get();
+    const latest = (await db.select().from(schema.canonicalFieldVersions).where(and(eq(schema.canonicalFieldVersions.locationId, locationId), eq(schema.canonicalFieldVersions.fieldName, k))).orderBy(desc(schema.canonicalFieldVersions.version)).get());
     if (latest && JSON.stringify(latest.normalizedValueJson) === JSON.stringify(value)) continue;
-    db.insert(schema.canonicalFieldVersions).values({ id: newId(), locationId, fieldName: k, normalizedValueJson: value, verifiedBy: userId, verificationSource: source, verifiedAt: now(), version: (latest?.version ?? 0) + 1 }).run();
+    (await db.insert(schema.canonicalFieldVersions).values({ id: newId(), locationId, fieldName: k, normalizedValueJson: value, verifiedBy: userId, verificationSource: source, verifiedAt: now(), version: (latest?.version ?? 0) + 1 }).run());
     written.push(k);
   }
-  if (written.length) db.update(schema.businessLocations).set({ verificationStatus: "verified", updatedAt: now() }).where(eq(schema.businessLocations.id, locationId)).run();
+  if (written.length) (await db.update(schema.businessLocations).set({ verificationStatus: "verified", updatedAt: now() }).where(eq(schema.businessLocations.id, locationId)).run());
   return written;
 }

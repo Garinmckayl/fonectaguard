@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { schema, type DB } from "./db";
+import { changes, schema, type DB } from "./db";
 import { now } from "./ids";
 import type { FieldName } from "./compare";
 
@@ -33,22 +33,22 @@ export const canWriteTo = (platform: string) => connectorInfo(platform)?.capabil
 export interface RawListing { name: string; address: string; phone: string; hours: string; website: string; updatedAt: number }
 
 export interface Connector {
-  readListing(db: DB, externalId: string): RawListing | null;
-  applyUpdate(db: DB, externalId: string, field: FieldName, value: string): { ok: boolean; response: Record<string, unknown> };
+  readListing(db: DB, externalId: string): Promise<RawListing | null>;
+  applyUpdate(db: DB, externalId: string, field: FieldName, value: string): Promise<{ ok: boolean; response: Record<string, unknown> }>;
 }
 
 const FIELD_COLUMN: Partial<Record<FieldName, "name" | "address" | "phone" | "hours" | "website">> = { name: "name", address: "address", phone: "phone", hours: "hours", website: "website" };
 
 export const demoConnector: Connector = {
-  readListing(db, slug) {
-    const r = db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, slug)).get();
+  async readListing(db, slug) {
+    const r = (await db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, slug)).get());
     return r ? { name: r.name, address: r.address, phone: r.phone, hours: r.hours, website: r.website, updatedAt: r.updatedAt } : null;
   },
-  applyUpdate(db, slug, field, value) {
+  async applyUpdate(db, slug, field, value) {
     const col = FIELD_COLUMN[field];
     if (!col) return { ok: false, response: { error: `Field ${field} not writable on demo directory` } };
-    const res = db.update(schema.demoListings).set({ [col]: value, updatedAt: now() }).where(eq(schema.demoListings.slug, slug)).run();
-    return { ok: res.changes === 1, response: { simulated: true, changes: res.changes, field, value } };
+    const res = (await db.update(schema.demoListings).set({ [col]: value, updatedAt: now() }).where(eq(schema.demoListings.slug, slug)).run());
+    return { ok: changes(res) === 1, response: { simulated: true, changes: changes(res), field, value } };
   },
 };
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -22,7 +23,7 @@ export function LiveScan({ locationId }: { locationId: string }) {
       timer.current = setInterval(async () => {
         const r = await fetch(`/api/scans/${scanId}/events`);
         if (!r.ok) return;
-        const d = await r.json();
+        const d = (await r.json()) as any;
         setEvents(d.events);
         if (d.scan.status !== "running") { clearInterval(timer.current); setStatus(d.scan.status); router.refresh(); }
       }, 500);

@@ -5,7 +5,7 @@ import { Empty, PageHeader } from "@/components/ui";
 
 export default async function Activity() {
   const s = (await getSession())!;
-  const events = getDb().select().from(schema.agentEvents).where(eq(schema.agentEvents.organizationId, s.orgId)).orderBy(desc(schema.agentEvents.createdAt)).limit(200).all();
+  const events = await (await getDb()).select().from(schema.agentEvents).where(eq(schema.agentEvents.organizationId, s.orgId)).orderBy(desc(schema.agentEvents.createdAt)).limit(200).all();
   return (
     <div>
       <PageHeader title="Agent activity" sub="Every step the system performed. Recorded events only — nothing simulated by the UI." />
