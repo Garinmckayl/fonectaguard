@@ -51,6 +51,8 @@ const DAY_ALIASES: Record<string, Day> = {
   fri: "fri", friday: "fri", pe: "fri", perjantai: "fri",
   sat: "sat", saturday: "sat", la: "sat", lauantai: "sat",
   sun: "sun", sunday: "sun", su: "sun", sunnuntai: "sun",
+  // schema.org opening-hours abbreviations
+  mo: "mon", tu: "tue", we: "wed", th: "thu", fr: "fri", sa: "sat",
 };
 
 function hhmm(h: string, m?: string): string | null {

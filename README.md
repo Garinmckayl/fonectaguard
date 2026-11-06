@@ -11,7 +11,10 @@ Working end to end, locally, on Cloudflare Workers (OpenNext) with D1 (Drizzle),
 - Demo session, organization, verified canonical profile (versioned fields; only owner-confirmed values are authoritative)
 - Scan engine: official-website fetch (JSON-LD, Zod-validated, page content treated as data only), directory discovery, deterministic identity matching (rejects look-alike businesses), deterministic field comparison (phone/address/hours/…), transparent Presence Health score, discrepancy dedupe
 - Investigation (website corroboration → confidence), repair proposals, approval / edit / reject, durable repair state machine with revalidation, idempotency keys and post-write verification
-- Demo connector: a persisted, clearly labelled simulated directory; drift and reset are real DB operations
+- **Real write connector — GitHub Pages website:** approved fixes are committed to the business's site repo through the GitHub API, Pages redeploys, and the live page is re-read to verify. Connecting also proves ownership (write access to the repo serving the site). Setup: Worker secret `GITHUB_PAGES_TOKEN` (fine-grained PAT, Contents: read/write on the site repo).
+- Sandbox connector: a persisted, clearly labelled simulated directory; drift and reset are real DB operations
+- Domain ownership verification (DNS TXT / meta tag / well-known file); approvals are blocked until verified
+- Live URL: https://fonectaguard.arcumet.com · live sandbox business: https://garinmckayl.github.io/aurora-coffee-demo/ (repo `Garinmckayl/aurora-coffee-demo`)
 - Dashboard, Listings, Issues, Resolution Center, Activity, Connections (truthful capability states), Settings, Onboarding
 - Cron-style entry point `GET /api/cron` (Bearer `CRON_SECRET`) that starts scans for locations past `next_scan_at`
 
@@ -37,6 +40,14 @@ npx opennextjs-cloudflare build && npx wrangler deploy
 ```
 
 Set `APP_URL` in `wrangler.jsonc` to the deployed URL (the scanner fetches the demo site from it through a self service binding). `worker.ts` adds the cron `scheduled` and Queue `queue` handlers.
+
+## Real end-to-end flow (no simulation)
+1. `/login` → *Start with my business* → onboarding → *Try the live sandbox business Aurora Coffee Roasters* → confirm → scan.
+2. Dashboard → Connections → *Connect GitHub Pages* (repo `Garinmckayl/aurora-coffee-demo`).
+3. *Make my website outdated (real commit)* → Rescan → FonectaGuard detects the stale phone on the live site.
+4. Resolution Center → *Approve Fix* → commit lands on GitHub → Pages deploys → live page re-read → Presence Health 100%.
+
+Meta/Google/Apple/Bing/Yelp/Fonecta need partner approval and are shown as unavailable rather than faked.
 
 ## Demo script
 

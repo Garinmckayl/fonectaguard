@@ -16,9 +16,9 @@ export default function Login() {
         </form>
         <form action="/api/auth/demo" method="post" className="card flex flex-col !p-6">
           <FlaskConical className="h-6 w-6 text-amber-500" />
-          <h2 className="mt-3 font-semibold text-slate-900">Explore the demo</h2>
-          <p className="mt-1 flex-1 text-sm text-slate-500">A fictional coffee shop with simulated directories, including the full approve → repair → verify loop.</p>
-          <button className="btn btn-ghost mt-5" type="submit">Open demo workspace</button>
+          <h2 className="mt-3 font-semibold text-slate-900">Sandbox workspace</h2>
+          <p className="mt-1 flex-1 text-sm text-slate-500">Pre-filled fictional data with simulated directories. For the real thing, start a workspace with your own business site.</p>
+          <button className="btn btn-ghost mt-5" type="submit">Open sandbox</button>
         </form>
       </div>
     </main>

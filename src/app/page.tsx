@@ -39,7 +39,7 @@ export default async function Landing() {
           </div>
         ))}
       </section>
-      <p className="mt-12 flex items-center justify-center gap-2 text-center text-xs text-slate-500"><Globe2 className="h-4 w-4" /> Live discovery and reading are real. External corrections are submitted by you; the demo directory is simulated and labelled.</p>
+      <p className="mt-12 flex items-center justify-center gap-2 text-center text-xs text-slate-500"><Globe2 className="h-4 w-4" /> Discovery (TinyFish), reading, AI extraction and website repairs (GitHub Pages commits) are real. Platforms that need partner approval are listed honestly; the sandbox directory is labelled as simulated.</p>
     </main>
   );
 }

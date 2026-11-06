@@ -5,7 +5,7 @@ import { newId, now } from "./ids";
 import { canWrite } from "./auth-roles";
 import { compareField, FIELD_LABELS, isMatch, type FieldName } from "./compare";
 import { audit, emit, notify } from "./events";
-import { connectorInfo, getConnector } from "./connectors";
+import { connectorInfo, resolveWrite } from "./connectors";
 import { listingLabel, observeListing, recheckListing, snapshotHealth } from "./scan";
 import { displayValue } from "./format";
 
@@ -67,7 +67,7 @@ export async function approveRepair(db: DB, a: { proposalId: string; orgId: stri
   await audit(db, loc.organizationId, a.userId, "repair.approved", payload);
   await emit(db, loc.organizationId, loc.id, null, "proposal_approved", `Owner approved: ${FIELD_LABELS[d.fieldName as FieldName]} → "${change.newValue}" on ${await listingLabel(db, listing)}.`, { proposalId: p.id });
 
-  if (change.capability !== "write" || !getConnector(fresh.targetPlatform)) {
+  if (change.capability !== "write" || !(await resolveWrite(db, loc.organizationId, listing))) {
     await setStatus(db, fresh, "manual_submission_required");
     await emit(db, loc.organizationId, loc.id, null, "manual_submission", "No write integration available. A correction package is ready for manual submission; the next scan will verify it.", { proposalId: p.id });
     return { status: "manual_submission_required" };
@@ -97,7 +97,9 @@ export async function executeRepair(db: DB, proposalId: string, opts: { paceMs?:
   };
 
   // 1. Connection still authorised?
-  const conn = (await db.select().from(schema.connections).where(and(eq(schema.connections.organizationId, org), eq(schema.connections.platform, p.targetPlatform))).get());
+  const target = await resolveWrite(db, org, listing);
+  if (!target) return await fail("no write connection is available for this listing");
+  const conn = (await db.select().from(schema.connections).where(and(eq(schema.connections.organizationId, org), eq(schema.connections.platform, target.connectionPlatform))).get());
   if (!conn || conn.status !== "connected" || !conn.capabilitiesJson.includes("write")) return await fail("connection is missing, expired or lacks write permission");
   ev("revalidating", `Re-reading ${label} before applying the change…`);
   await sleep(opts.paceMs ?? 0);
@@ -121,11 +123,15 @@ export async function executeRepair(db: DB, proposalId: string, opts: { paceMs?:
     const inserted = (await db.insert(schema.repairAttempts).values({ id: newId(), proposalId: p.id, idempotencyKey: key, status: "pending", attemptedAt: now() }).onConflictDoNothing().run());
     if (changes(inserted) !== 1) return await fail("duplicate attempt suppressed by idempotency key");
     ev("applying", `Submitting approved correction to ${label}…`, { field });
-    const res = await getConnector(p.targetPlatform)!.applyUpdate(db, listing.externalListingId!, field, String(change.newValue));
+    const res = await target.connector.applyUpdate(db, target.externalId, field, String(change.newValue));
     (await db.update(schema.repairAttempts).set({ connectorResponseJson: res.response, status: res.ok ? "submitted" : "failed" }).where(eq(schema.repairAttempts.idempotencyKey, key)).run());
     await audit(db, org, p.approvedBy, "repair.submitted", { proposalId: p.id, ok: res.ok, response: res.response });
     if (!res.ok) return await fail("the platform rejected the update");
-    ev("submitted", `${label} accepted the update (simulated platform).`, { response: res.response });
+    ev("submitted", target.connectionPlatform === "demo" ? `${label} accepted the update (simulated platform).` : `Committed the change to ${target.externalId} on GitHub.`, { response: res.response });
+  }
+  if (target.connector.awaitPublished) {
+    ev("deploying", "Waiting for GitHub Pages to deploy the change…");
+    if (!(await target.connector.awaitPublished(listing.url, field, String(change.newValue)))) return await fail("the live site did not show the new value yet (GitHub Pages deploy pending) — retry in a minute");
   }
 
   // 4. Verify by re-reading the published value; submission != confirmed.

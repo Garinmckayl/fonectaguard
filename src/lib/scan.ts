@@ -6,7 +6,7 @@ import { compareAll, isMatch, type Comparison, type FieldName } from "./compare"
 import { computeHealthScore } from "./health";
 import { matchIdentity } from "./identity";
 import { contentHash, extractFromHtml, extractFromRaw, fetchPage, type Extraction } from "./extract";
-import { canWriteTo, connectorInfo, demoConnector } from "./connectors";
+import { canWriteTo, connectorInfo, demoConnector, githubConnection } from "./connectors";
 import { audit, emit, notify } from "./events";
 import { extractBusinessFacts } from "./ai";
 import { fetchTexts, hasTinyFish, webSearch } from "./tinyfish";
@@ -71,7 +71,7 @@ export async function observeListing(db: DB, listing: Listing): Promise<{ extrac
       return ai ? { extraction: ai } : { extraction: null, error: "Page no longer shows this business" };
     }
     if (listing.platform === "demo") {
-      const raw = await demoConnector.readListing(db, listing.externalListingId!);
+      const raw = await demoConnector.readListing!(db, listing.externalListingId!);
       if (!raw) return { extraction: null, error: "Listing no longer exists on platform" };
       return { extraction: extractFromRaw(raw, listing.url, 0.98, raw.updatedAt) };
     }
@@ -113,7 +113,7 @@ export async function snapshotHealth(db: DB, locationId: string) {
   return h;
 }
 
-interface Ctx { db: DB; orgId: string; ownerId: string; loc: Location; scanId: string | null; canonical: Canonical; websiteComps: Map<FieldName, Comparison> }
+interface Ctx { db: DB; orgId: string; ownerId: string; loc: Location; scanId: string | null; canonical: Canonical; websiteComps: Map<FieldName, Comparison>; siteWritable: boolean }
 
 /** Compares one listing's extraction with canonical data and upserts discrepancies/proposals. Returns active-issue count. */
 export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction): Promise<number> {
@@ -152,12 +152,12 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
     let confidence = 0.8 + (corroborated ? 0.1 : 0) + (authoritative ? 0.08 : 0);
     confidence = Math.min(0.99, Number(confidence.toFixed(2)));
     const label = await listingLabel(db, listing);
-    const staleCanonical = isOwnWebsite;
+    const staleCanonical = isOwnWebsite && !ctx.siteWritable;
     const explanation = staleCanonical
       ? `Your official website shows ${FIELD_LABELS[c.field].toLowerCase()} "${displayValue(c.field, c.observed)}" but your verified profile says "${displayValue(c.field, c.canonical)}". Either the website is outdated or the verified profile is stale — please confirm the correct value.`
       : `${label} shows ${FIELD_LABELS[c.field].toLowerCase()} "${displayValue(c.field, c.observed)}". Your verified profile${corroborated ? " and official website both" : ""} show "${displayValue(c.field, c.canonical)}". ${c.impact}`;
     const discId = newId();
-    const writable = canWriteTo(listing.platform);
+    const writable = canWriteTo(listing.platform) || (isOwnWebsite && ctx.siteWritable);
     const status = staleCanonical || c.classification === "ambiguous" ? "needs_clarification" : "awaiting_approval";
     (await db.insert(schema.discrepancies).values({
       id: discId, locationId: loc.id, listingId: listing.id, fieldName: c.field, canonicalVersionId: ctx.canonical[c.field]?.versionId ?? null,
@@ -185,7 +185,7 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
 
 async function makeCtx(db: DB, loc: Location, scanId: string | null): Promise<Ctx> {
   const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, loc.organizationId)).get())!;
-  return { db, orgId: loc.organizationId, ownerId: org.ownerUserId, loc, scanId, canonical: await loadCanonical(db, loc.id), websiteComps: new Map() };
+  return { db, orgId: loc.organizationId, ownerId: org.ownerUserId, loc, scanId, canonical: await loadCanonical(db, loc.id), websiteComps: new Map(), siteWritable: !!(await githubConnection(db, loc.organizationId)) };
 }
 
 async function websiteComparisons(db: DB, ctx: Ctx) {
