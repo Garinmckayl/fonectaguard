@@ -48,7 +48,7 @@ export default function Onboarding() {
           <input id="website" className="input" required placeholder="yourbusiness.com" value={website} onChange={(e) => setWebsite(e.target.value)} />
           {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
           <button className="btn btn-primary w-full" disabled={busy}>{busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading your website…</> : <><Wand2 className="h-4 w-4" /> Read my website</>}</button>
-          <button type="button" className="w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-center text-xs text-slate-600 hover:bg-slate-50" onClick={() => setWebsite("https://garinmckayl.github.io/aurora-coffee-demo/")}>No site handy? Try the live sandbox business <b>Aurora Coffee Roasters</b> — a real website you can connect and repair</button>
+          <button type="button" className="w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-center text-xs text-slate-600 hover:bg-slate-50" onClick={() => setWebsite("https://garinmckayl.github.io/aurora-coffee-demo/")}>No site handy? Try <b>Aurora Coffee Roasters</b>: an example business with a real, live website you can connect and repair</button>
           <button type="button" className="w-full text-center text-xs text-slate-500 underline" onClick={() => { setWebsite((w) => (/^https?:\/\//.test(w) || !w ? w : `https://${w}`)); setStep(2); }}>Skip and enter details manually</button>
         </form>
       ) : (

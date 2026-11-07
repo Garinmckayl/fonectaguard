@@ -81,7 +81,7 @@ export async function writeField(repo: string, field: FieldName, value: string, 
 export async function awaitPublished(url: string, field: FieldName, value: string, timeoutMs = 100_000): Promise<boolean> {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
-    await new Promise((r) => setTimeout(r, 4000));
+    await new Promise((r) => setTimeout(r, Number(process.env.PAGES_POLL_MS ?? 4000)));
     try {
       const sep = url.includes("?") ? "&" : "?";
       const page = await fetchPage(`${url}${sep}fg=${Date.now()}`);

@@ -8,6 +8,8 @@ export function normalizePhone(raw: string, defaultCountry = "358"): string | nu
   if (s.startsWith("+")) s = "+" + s.slice(1).replace(/\D/g, "");
   else if (s.startsWith("0")) s = "+" + defaultCountry + s.slice(1);
   else return null;
+  // Many sites keep the national trunk "0" after the country code ("+358 09 652 817"); it is not part of the international number.
+  s = s.replace(/^\+(358|46|47|45|44|49|31|372)0(\d)/, "+$1$2");
   const digits = s.slice(1);
   if (digits.length < 8 || digits.length > 15) return null;
   return s;

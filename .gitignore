@@ -11,3 +11,14 @@ data
 .open-next
 .wrangler
 .dev.vars
+
+# challenge dataset (CC BY 4.0, ~85 MB): fetched separately, see README
+challenge/data/
+challenge/labels/
+challenge/evaluation/
+challenge_out/
+.venv-ml/
+
+# python caches
+__pycache__/
+*.pyc

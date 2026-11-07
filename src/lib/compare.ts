@@ -1,4 +1,4 @@
-import { DAYS, closingMinutes, normalizeAddress, normalizePhone, normalizeText, normalizeUrl, parseHours, type Schedule } from "./normalize";
+import { DAYS, closingMinutes, normalizeAddress, normalizePhone, normalizeText, normalizeUrl, normalizeUrlHost, parseHours, type Schedule } from "./normalize";
 
 export type FieldName = "name" | "address" | "phone" | "email" | "website" | "hours" | "description";
 export type Classification = "exact" | "equivalent" | "harmless" | "missing" | "likely" | "ambiguous";
@@ -63,6 +63,8 @@ export function compareField(field: FieldName, canonical: unknown, observed: unk
     case "website": {
       const nc = normalizeUrl(c), no = normalizeUrl(o);
       if (nc && nc === no) return result(field, c === o ? "exact" : "equivalent", null, c, o, "Websites match.");
+      // Same site, different page (e.g. /en/front-page): the customer still lands on the business's own website.
+      if (normalizeUrlHost(c) && normalizeUrlHost(c) === normalizeUrlHost(o)) return result(field, "harmless", null, c, o, "Same website (different page).");
       return result(field, "likely", "medium", c, o, `Published website ${o} differs from ${c}.`);
     }
     case "email": {

@@ -2,16 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { @apply bg-ink text-slate-700 antialiased; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif; background-image: radial-gradient(50rem 24rem at 85% -8%, rgba(99,102,241,.14), transparent), radial-gradient(40rem 20rem at -5% 0%, rgba(20,184,166,.09), transparent); background-attachment: fixed; }
-.card { @apply rounded-2xl border border-line bg-white p-5 shadow-soft; }
-.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed; }
-.btn-primary { @apply bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 hover:from-indigo-500 hover:to-violet-500; }
-.btn-ghost { @apply border border-line bg-white text-slate-700 hover:bg-slate-50; }
-.btn-danger { @apply border border-red-200 bg-white text-red-600 hover:bg-red-50; }
-.input { @apply w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent; }
-.fade-in { animation: fade .35s ease both; }
-@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.pulse-dot { animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
-.text-gradient { @apply bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent; }
+:root { color-scheme: light; --ink: #14110D; }
+html { scroll-behavior: smooth; }
+body {
+  @apply bg-paper text-slate-700 antialiased;
+  font-family: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background-image: radial-gradient(rgba(20,17,13,.13) 1px, transparent 1.2px), radial-gradient(60rem 28rem at 90% -10%, rgba(255,91,31,.14), transparent), radial-gradient(44rem 22rem at -8% 4%, rgba(255,225,77,.22), transparent);
+  background-size: 22px 22px, auto, auto; background-attachment: fixed;
+}
+h1, h2, h3 { font-family: var(--font-display), ui-sans-serif, system-ui; letter-spacing: -0.02em; }
+::selection { background: #FFE14D; color: #14110D; }
+
+.card { @apply rounded-2xl border-[1.5px] border-ink bg-panel p-5 shadow-soft; }
+.card-pop { @apply rounded-2xl border-[1.5px] border-ink bg-panel p-5 shadow-pop; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl border-[1.5px] border-ink px-4 py-2 text-sm font-semibold text-ink transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50; }
+.btn:not(:disabled):hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 0 var(--ink); }
+.btn:not(:disabled):active { transform: translate(1px, 1px); box-shadow: none; }
+.btn-primary { @apply bg-brand; }
+.btn-primary:not(:disabled):hover { @apply bg-[#FF6E38]; }
+.btn-ghost { @apply bg-panel; }
+.btn-danger { @apply bg-panel text-red-700; }
+.input { @apply w-full rounded-xl border-[1.5px] border-ink bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand; }
+
+/* marker-pen highlight for the facts that matter */
+.hl { background: linear-gradient(transparent 58%, #FFE14D 58%, #FFE14D 92%, transparent 92%); padding: 0 .1em; }
+.hl-red { background: linear-gradient(transparent 58%, #FFB4A8 58%, #FFB4A8 92%, transparent 92%); padding: 0 .1em; }
+.strike-red { text-decoration: line-through; text-decoration-color: #D92D20; text-decoration-thickness: 2px; }
+.stamp { display: inline-block; transform: rotate(-4deg); border: 2.5px solid currentColor; border-radius: .5rem; padding: .1rem .6rem; font-family: var(--font-mono); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+.fade-in { animation: fade .45s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pulse-dot { animation: pulse 1.6s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.text-gradient { color: #FF5B1F; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

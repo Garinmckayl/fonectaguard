@@ -6,7 +6,11 @@ import { compareAll, isMatch, type Comparison, type FieldName } from "./compare"
 import { computeHealthScore } from "./health";
 import { matchIdentity } from "./identity";
 import { contentHash, extractFromHtml, extractFromRaw, fetchPage, type Extraction } from "./extract";
-import { canWriteTo, connectorInfo, demoConnector, githubConnection } from "./connectors";
+import { findOsm, osmEditUrl, readOsm } from "./osm";
+import { OSM_WRITABLE } from "./osm-write";
+import { FB_WRITABLE, readFacebookPage } from "./facebook";
+import { fbConnection } from "./facebook-creds";
+import { READ_PLATFORMS, canWriteTo, connectorInfo, displayName, githubConnection, osmConnection, platformForUrl } from "./connectors";
 import { audit, emit, notify } from "./events";
 import { extractBusinessFacts } from "./ai";
 import { fetchTexts, hasTinyFish, webSearch } from "./tinyfish";
@@ -21,12 +25,7 @@ const FREQ_MS: Record<string, number> = { hourly: 3600e3, every_6_hours: 6 * 360
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
 export async function listingLabel(db: DB, listing: Listing): Promise<string> {
-  if (listing.platform === "demo" && listing.externalListingId) {
-    const r = (await db.select().from(schema.demoListings).where(eq(schema.demoListings.slug, listing.externalListingId)).get());
-    if (r) return `${r.platform} (simulated)`;
-  }
-  if (listing.platform === "web") return new URL(listing.url).hostname.replace(/^www\./, "");
-  return connectorInfo(listing.platform)?.label ?? listing.platform;
+  return displayName(listing.platform, listing.url);
 }
 
 const factsToRaw = (f: NonNullable<Awaited<ReturnType<typeof extractBusinessFacts>>>, url: string) => ({ name: f.name ?? undefined, address: f.address ?? undefined, phone: f.phone ?? undefined, hours: f.hours ?? undefined, email: f.email ?? undefined, description: f.description ?? undefined, website: url });
@@ -65,15 +64,22 @@ export async function observeListing(db: DB, listing: Listing): Promise<{ extrac
       }
       return { extraction: null, error: "No structured business data found" };
     }
-    if (listing.platform === "web") {
+    if (listing.platform === "facebook" && listing.externalListingId) {
+      const lc = (await db.select().from(schema.businessLocations).where(eq(schema.businessLocations.id, listing.locationId)).get())!;
+      const fc = await fbConnection(db, lc.organizationId);
+      if (fc && fc.pageId === listing.externalListingId) {
+        const ex = await readFacebookPage(fc.pageId, fc.token);
+        return ex ? { extraction: ex } : { extraction: null, error: "The connected Facebook Page could not be read" };
+      }
+    }
+    if (listing.platform === "openstreetmap") {
+      const p = await readOsm(listing.externalListingId ?? listing.url);
+      return p ? { extraction: p.extraction } : { extraction: null, error: "Object no longer found on OpenStreetMap" };
+    }
+    if (listing.platform === "web" || READ_PLATFORMS.includes(listing.platform)) {
       const loc = (await db.select().from(schema.businessLocations).where(eq(schema.businessLocations.id, listing.locationId)).get())!;
       const ai = await aiExtract(listing.url, { name: loc.businessName, city: loc.city ?? undefined });
       return ai ? { extraction: ai } : { extraction: null, error: "Page no longer shows this business" };
-    }
-    if (listing.platform === "demo") {
-      const raw = await demoConnector.readListing!(db, listing.externalListingId!);
-      if (!raw) return { extraction: null, error: "Listing no longer exists on platform" };
-      return { extraction: extractFromRaw(raw, listing.url, 0.98, raw.updatedAt) };
     }
     return { extraction: null, error: "No read integration for this platform" };
   } catch (e) {
@@ -113,7 +119,7 @@ export async function snapshotHealth(db: DB, locationId: string) {
   return h;
 }
 
-interface Ctx { db: DB; orgId: string; ownerId: string; loc: Location; scanId: string | null; canonical: Canonical; websiteComps: Map<FieldName, Comparison>; siteWritable: boolean }
+interface Ctx { db: DB; orgId: string; ownerId: string; loc: Location; scanId: string | null; canonical: Canonical; websiteComps: Map<FieldName, Comparison>; siteWritable: boolean; osmWritable: boolean; fbWritable: boolean }
 
 /** Compares one listing's extraction with canonical data and upserts discrepancies/proposals. Returns active-issue count. */
 export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction): Promise<number> {
@@ -124,12 +130,17 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
   let issues = 0;
   for (const c of comps) {
     const existing = (await db.select().from(schema.discrepancies).where(and(eq(schema.discrepancies.listingId, listing.id), eq(schema.discrepancies.fieldName, c.field), notInArray(schema.discrepancies.status, ACTIVE_NOT))).get());
-    const actionable = c.classification === "likely" || (c.classification === "ambiguous" && c.severity !== null);
+    // OpenStreetMap is the one source where an omission is fixable by us, so a missing value we know is a real, actionable gap.
+    // Omissions are fixable by us on sources we can write to (OpenStreetMap, a connected Facebook Page), so a missing value we know is a real gap there.
+    const osmGap = c.classification === "missing" && ((listing.platform === "openstreetmap" && (OSM_WRITABLE as string[]).includes(c.field)) || (listing.platform === "facebook" && ctx.fbWritable && (FB_WRITABLE as string[]).includes(c.field)));
+    const actionable = c.classification === "likely" || (c.classification === "ambiguous" && c.severity !== null) || osmGap;
     if (!actionable) {
       if (existing && isMatch(c.classification)) {
         const inFlight = (await db.select().from(schema.repairProposals).where(and(eq(schema.repairProposals.discrepancyId, existing.id), inArray(schema.repairProposals.status, ["approved", "applying", "verifying"]))).get());
         if (!inFlight) {
           (await db.update(schema.discrepancies).set({ status: "resolved", resolvedAt: now(), lastSeenAt: now() }).where(eq(schema.discrepancies.id, existing.id)).run());
+          // A manually submitted correction is confirmed once the re-read value matches.
+          (await db.update(schema.repairProposals).set({ status: "resolved" }).where(and(eq(schema.repairProposals.discrepancyId, existing.id), eq(schema.repairProposals.status, "manual_submission_required"))).run());
           (await db.update(schema.repairProposals).set({ status: "superseded" }).where(and(eq(schema.repairProposals.discrepancyId, existing.id), eq(schema.repairProposals.status, "awaiting_approval"))).run());
           await emit(db, orgId, loc.id, scanId, "discrepancy_cleared", `${FIELD_LABELS[c.field]} on ${info?.label ?? listing.platform} now matches the verified profile.`, { listingId: listing.id, field: c.field });
         }
@@ -139,7 +150,16 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
     issues++;
     const observedRaw = ex[c.field]?.raw;
     if (existing) {
-      (await db.update(schema.discrepancies).set({ lastSeenAt: now(), observedValueJson: c.observed }).where(eq(schema.discrepancies.id, existing.id)).run());
+      const set: Partial<typeof schema.discrepancies.$inferInsert> = { lastSeenAt: now(), observedValueJson: c.observed };
+      // The owner confirmed a different value since this was proposed: an open proposal must carry the current one, never a superseded value.
+      const cv = ctx.canonical[c.field]?.versionId;
+      if (cv && existing.canonicalVersionId !== cv && existing.status === "awaiting_approval") {
+        set.expectedValueJson = c.canonical; set.canonicalVersionId = cv;
+        const open = await db.select().from(schema.repairProposals).where(and(eq(schema.repairProposals.discrepancyId, existing.id), eq(schema.repairProposals.status, "awaiting_approval"))).get();
+        if (open) await db.update(schema.repairProposals).set({ proposedChangeJson: { ...open.proposedChangeJson, newValue: displayValue(c.field, c.canonical) } }).where(eq(schema.repairProposals.id, open.id)).run();
+        await emit(db, orgId, loc.id, scanId, "proposal_updated", `Updated the proposed ${FIELD_LABELS[c.field].toLowerCase()} to your newly confirmed value.`, { discrepancyId: existing.id });
+      }
+      (await db.update(schema.discrepancies).set(set).where(eq(schema.discrepancies.id, existing.id)).run());
       continue;
     }
     const dismissed = (await db.select().from(schema.discrepancies).where(and(eq(schema.discrepancies.listingId, listing.id), eq(schema.discrepancies.fieldName, c.field), eq(schema.discrepancies.status, "dismissed"))).orderBy(desc(schema.discrepancies.firstDetectedAt)).get());
@@ -148,20 +168,21 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
     // Investigation: does the owner's official website corroborate the verified value?
     const web = ctx.websiteComps.get(c.field);
     const corroborated = !isOwnWebsite && !!web && isMatch(web.classification);
-    const authoritative = !!info && info.capabilities.includes("read") && listing.platform !== "website";
-    let confidence = 0.8 + (corroborated ? 0.1 : 0) + (authoritative ? 0.08 : 0);
+    let confidence = 0.8 + (corroborated ? 0.1 : 0);
     confidence = Math.min(0.99, Number(confidence.toFixed(2)));
     const label = await listingLabel(db, listing);
     const staleCanonical = isOwnWebsite && !ctx.siteWritable;
-    const explanation = staleCanonical
+    const explanation = osmGap
+      ? `${label} has no ${FIELD_LABELS[c.field].toLowerCase()} for your business, so customers looking there cannot see it. Your confirmed ${FIELD_LABELS[c.field].toLowerCase()} is "${displayValue(c.field, c.canonical)}".`
+      : staleCanonical
       ? `Your official website shows ${FIELD_LABELS[c.field].toLowerCase()} "${displayValue(c.field, c.observed)}" but your verified profile says "${displayValue(c.field, c.canonical)}". Either the website is outdated or the verified profile is stale — please confirm the correct value.`
       : `${label} shows ${FIELD_LABELS[c.field].toLowerCase()} "${displayValue(c.field, c.observed)}". Your verified profile${corroborated ? " and official website both" : ""} show "${displayValue(c.field, c.canonical)}". ${c.impact}`;
     const discId = newId();
-    const writable = canWriteTo(listing.platform) || (isOwnWebsite && ctx.siteWritable);
+    const writable = canWriteTo(listing.platform) || (isOwnWebsite && ctx.siteWritable) || (listing.platform === "openstreetmap" && ctx.osmWritable && (OSM_WRITABLE as string[]).includes(c.field)) || (listing.platform === "facebook" && ctx.fbWritable && (FB_WRITABLE as string[]).includes(c.field));
     const status = staleCanonical || c.classification === "ambiguous" ? "needs_clarification" : "awaiting_approval";
     (await db.insert(schema.discrepancies).values({
       id: discId, locationId: loc.id, listingId: listing.id, fieldName: c.field, canonicalVersionId: ctx.canonical[c.field]?.versionId ?? null,
-      observedValueJson: c.observed, expectedValueJson: c.canonical, severity: c.severity ?? "low", confidence, explanation, impact: c.impact,
+      observedValueJson: c.observed, expectedValueJson: c.canonical, severity: c.severity ?? (osmGap ? "medium" : "low"), confidence, explanation, impact: c.impact,
       classification: confidence >= 0.9 && !staleCanonical ? "confirmed" : c.classification, status, firstDetectedAt: now(), lastSeenAt: now(),
     }).run());
     await emit(db, orgId, loc.id, scanId, "discrepancy_detected", `Detected ${FIELD_LABELS[c.field].toLowerCase()} mismatch on ${label}: "${displayValue(c.field, c.observed)}" vs verified "${displayValue(c.field, c.canonical)}".`, { discrepancyId: discId, listingId: listing.id, severity: c.severity, url: listing.url });
@@ -170,7 +191,7 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
       (await db.insert(schema.repairProposals).values({
         id: newId(), discrepancyId: discId, targetPlatform: listing.platform,
         proposedChangeJson: { field: c.field, oldValue: displayValue(c.field, c.observed), newValue: displayValue(c.field, c.canonical), action: writable ? "update_listing" : "manual_submission", capability: writable ? "write" : "manual_approval_link", risk: c.severity === "critical" ? "high" : "low" },
-        evidenceJson: { listingUrl: listing.url, observed: { raw: observedRaw, excerpt: ex[c.field]?.excerpt, observedAt: ex[c.field]?.observedAt }, corroboration: corroborated ? [{ source: "official_website", url: loc.website, value: displayValue(c.field, web!.observed) }] : [], manageUrl: info?.manageUrl ?? null },
+        evidenceJson: { listingUrl: listing.url, observed: { raw: observedRaw, excerpt: ex[c.field]?.excerpt, observedAt: ex[c.field]?.observedAt }, corroboration: corroborated ? [{ source: "official_website", url: loc.website, value: displayValue(c.field, web!.observed) }] : [], manageUrl: listing.platform === "openstreetmap" ? osmEditUrl(listing.url) : info?.manageUrl ?? null },
         confidence, explanation, status: "awaiting_approval", createdAt: now(),
       }).run());
       await emit(db, orgId, loc.id, scanId, "proposal_created", `Prepared a correction for ${label}: ${FIELD_LABELS[c.field].toLowerCase()} → "${displayValue(c.field, c.canonical)}". Awaiting owner approval.`, { discrepancyId: discId });
@@ -185,7 +206,7 @@ export async function evaluateListing(ctx: Ctx, listing: Listing, ex: Extraction
 
 async function makeCtx(db: DB, loc: Location, scanId: string | null): Promise<Ctx> {
   const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, loc.organizationId)).get())!;
-  return { db, orgId: loc.organizationId, ownerId: org.ownerUserId, loc, scanId, canonical: await loadCanonical(db, loc.id), websiteComps: new Map(), siteWritable: !!(await githubConnection(db, loc.organizationId)) };
+  return { db, orgId: loc.organizationId, ownerId: org.ownerUserId, loc, scanId, canonical: await loadCanonical(db, loc.id), websiteComps: new Map(), siteWritable: !!(await githubConnection(db, loc.organizationId)), osmWritable: !!(await osmConnection(db, loc.organizationId)), fbWritable: !!(await fbConnection(db, loc.organizationId)) };
 }
 
 async function websiteComparisons(db: DB, ctx: Ctx) {
@@ -272,26 +293,11 @@ export async function executeScan(db: DB, locationId: string, scanId: string, op
   }
   await sleep(pace);
 
-  // 2. Discovery (demo directory index). Identity is decided deterministically before any listing is monitored.
-  ev("searching", "Searching directories for business mentions…");
-  const candidates = (await db.select().from(schema.demoListings).where(eq(schema.demoListings.organizationId, loc.organizationId)).all());
+  // 2. Discovery. Identity is decided deterministically before any listing is monitored.
   const addr = ctx.canonical.address?.value as string | undefined;
   const monitored: Listing[] = [];
-  for (const cand of candidates) {
-    await sleep(pace);
-    const url = `${process.env.APP_URL ?? "http://localhost:3000"}/demo-directory/${cand.slug}`;
-    const m = matchIdentity({ name: loc.businessName, address: addr, phone: ctx.canonical.phone?.value as string, website: loc.website ?? undefined, city: loc.city ?? undefined }, { name: cand.name, address: cand.address, phone: cand.phone, website: cand.website });
-    if (m.verdict === "reject") { ev("listing_ignored", `Ignored unrelated "${cand.name}" on ${cand.platform} (identity score ${m.score}).`, { slug: cand.slug, signals: m.signals }); continue; }
-    const { listing, created } = await upsertListing(db, loc, "demo", url, cand.slug, m.score, m.verdict === "match" ? "monitoring" : "needs_review", scanId);
-    if (created) {
-      ev("listing_discovered", `Discovered listing "${cand.name}" on ${cand.platform} (identity ${Math.round(m.score * 100)}%: ${m.signals.join(", ")}).`, { listingId: listing.id, url });
-      await notify(db, ctx.ownerId, "new_listing", `${listing.id}:new`, { listingId: listing.id, platform: cand.platform });
-    }
-    if (listing.status === "monitoring") monitored.push(listing);
-  }
-  // 2b. Live discovery for real (non-demo) workspaces: TinyFish web search → TinyFish fetch → AI extraction → deterministic identity match.
-  const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, loc.organizationId)).get());
-  if (!org?.isDemo && hasTinyFish()) {
+  // Live discovery: TinyFish web search → TinyFish fetch → AI extraction → deterministic identity match.
+  if (hasTinyFish()) {
     try {
       const q = `${loc.businessName} ${loc.city ?? ""}`.trim();
       ev("searching", `Searching the live web for "${q}" with TinyFish…`);
@@ -307,7 +313,7 @@ export async function executeScan(db: DB, locationId: string, scanId: string, op
         if (!f || f.is_target_business === false || !f.name) { ev("listing_ignored", `Ignored ${h.site}: page is not about ${loc.businessName}.`, { url: h.url }); return; }
         const m = matchIdentity({ name: loc.businessName, address: addr, phone: ctx.canonical.phone?.value as string, website: loc.website ?? undefined, city: loc.city ?? undefined }, { name: f.name, address: f.address ?? undefined, phone: f.phone ?? undefined, website: f.website ?? undefined });
         if (m.verdict === "reject") { ev("listing_ignored", `Ignored "${f.name}" on ${h.site} (identity score ${m.score}; likely a different business).`, { url: h.url, signals: m.signals }); return; }
-        const { listing, created } = await upsertListing(db, loc, "web", h.url, null, m.score, m.verdict === "match" ? "monitoring" : "needs_review", scanId);
+        const { listing, created } = await upsertListing(db, loc, platformForUrl(h.url), h.url, null, m.score, m.verdict === "match" ? "monitoring" : "needs_review", scanId);
         if (created) ev("listing_discovered", `Discovered "${f.name}" on ${h.site} (identity ${Math.round(m.score * 100)}%: ${m.signals.join(", ")}).`, { listingId: listing.id, url: h.url });
         if (listing.status === "monitoring" && !monitored.find((x) => x.id === listing.id)) monitored.push(listing);
       }));
@@ -315,8 +321,19 @@ export async function executeScan(db: DB, locationId: string, scanId: string, op
       ev("source_unavailable", `Live web discovery failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+  // OpenStreetMap: open data, no key. Same independent-signal identity check as every other source.
+  try {
+    const place = await findOsm({ name: loc.businessName, city: loc.city ?? undefined, website: loc.website ?? undefined, address: addr, phone: ctx.canonical.phone?.value as string | undefined }, loc.country ?? "fi");
+    if (place) {
+      const { listing, created } = await upsertListing(db, loc, "openstreetmap", place.url, `${place.type}/${place.id}`, place.score ?? 0.6, (place.score ?? 0) >= 0.6 ? "monitoring" : "needs_review", scanId);
+      if (created) ev("listing_discovered", `Found "${place.name}" on OpenStreetMap${place.missing.length ? ` (missing: ${place.missing.join(", ")})` : ""}.`, { listingId: listing.id, url: place.url });
+      if (listing.status === "monitoring" && !monitored.find((x) => x.id === listing.id)) monitored.push(listing);
+    } else ev("searching", "Not found on OpenStreetMap.");
+  } catch (e) {
+    ev("source_unavailable", `OpenStreetMap lookup failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
   // Include previously known listings that were not re-discovered.
-  for (const l of (await db.select().from(schema.listings).where(and(eq(schema.listings.locationId, loc.id), eq(schema.listings.status, "monitoring"), inArray(schema.listings.platform, ["demo", "web"]))).all())) if (!monitored.find((m) => m.id === l.id)) monitored.push(l);
+  for (const l of (await db.select().from(schema.listings).where(and(eq(schema.listings.locationId, loc.id), eq(schema.listings.status, "monitoring"), inArray(schema.listings.platform, ["web", ...READ_PLATFORMS]))).all())) if (!monitored.find((m) => m.id === l.id)) monitored.push(l);
 
   // 3. Extract + compare each monitored listing
   for (const l of monitored) {

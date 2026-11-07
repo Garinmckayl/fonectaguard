@@ -22,7 +22,7 @@ export function verifySessionToken(tok: string | undefined): string | null {
 }
 export const sessionCookie = { name: COOKIE, options: { httpOnly: true, sameSite: "lax" as const, path: "/", secure: process.env.NODE_ENV === "production" } };
 
-export interface Session { userId: string; userName: string; orgId: string; isDemo: boolean; role: string }
+export interface Session { userId: string; userName: string; orgId: string; role: string }
 
 export async function getSession(): Promise<Session | null> {
   const uid = verifySessionToken((await cookies()).get(COOKIE)?.value);
@@ -34,7 +34,7 @@ export async function getSession(): Promise<Session | null> {
   if (!m) return null;
   const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, m.organizationId)).get());
   if (!org) return null;
-  return { userId: uid, userName: user.name, orgId: org.id, isDemo: !!org.isDemo, role: m.role };
+  return { userId: uid, userName: user.name, orgId: org.id, role: m.role };
 }
 
 /** CSRF defence for cookie-authenticated mutations: require same-origin Origin/Host. */

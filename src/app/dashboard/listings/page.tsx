@@ -5,7 +5,7 @@ import { getDb, schema } from "@/lib/db";
 import { getLocation, loadListingsWithStats } from "@/lib/queries";
 import { Badge, Empty, PageHeader, SeverityBadge, ago } from "@/components/ui";
 import { ActionButton } from "@/components/actions";
-import { connectorInfo } from "@/lib/connectors";
+import { connectorInfo, displayName } from "@/lib/connectors";
 import { compareAll, FIELD_LABELS, isMatch, type FieldName } from "@/lib/compare";
 import { canonicalValues, latestExtraction, observedValues } from "@/lib/scan";
 import { loadCanonical } from "@/lib/canonical";
@@ -42,11 +42,11 @@ export default async function Listings(props: { searchParams: Promise<{ id?: str
                 const info = connectorInfo(r.platform);
                 return (
                   <tr key={r.id} className="border-t border-line hover:bg-slate-100">
-                    <td className="p-3"><Link className="font-medium text-slate-900 hover:text-accent" href={`/dashboard/listings?id=${r.id}`}>{r.platform === "demo" ? "Demo directory" : info?.label ?? r.platform}</Link></td>
+                    <td className="p-3"><Link className="font-medium text-slate-900 hover:text-accent" href={`/dashboard/listings?id=${r.id}`}>{displayName(r.platform, r.url)}</Link></td>
                     <td className="max-w-xs truncate text-slate-500">{r.url}</td>
                     <td>{r.status === "needs_review" ? <Badge tone="amber">Needs review</Badge> : r.lastScannedAt ? <SeverityBadge s={r.worst} /> : <Badge>Pending</Badge>}</td>
                     <td>{r.discrepancies.length}</td>
-                    <td><Badge tone={info?.state === "demo_connector" ? "amber" : "zinc"}>{info?.state.replaceAll("_", " ") ?? "unknown"}</Badge></td>
+                    <td><Badge tone={info?.state === "manual_approval_link" ? "amber" : "zinc"}>{info?.state.replaceAll("_", " ") ?? "unknown"}</Badge></td>
                     <td className="text-slate-500">{ago(r.lastScannedAt)}</td>
                   </tr>
                 );
@@ -55,29 +55,27 @@ export default async function Listings(props: { searchParams: Promise<{ id?: str
           </table>
         </div>
       )}
-      {selected && <Detail listingId={selected.id} locId={loc.id} isDemo={s.isDemo} />}
+      {selected && <Detail listingId={selected.id} locId={loc.id} />}
     </div>
   );
 }
 
-async function Detail({ listingId, locId, isDemo }: { listingId: string; locId: string; isDemo: boolean }) {
+async function Detail({ listingId, locId }: { listingId: string; locId: string }) {
   const db = await getDb();
   const l = (await db.select().from(schema.listings).where(eq(schema.listings.id, listingId)).get())!;
   const ex = await latestExtraction(db, l.id);
   const comps = ex ? compareAll(canonicalValues(await loadCanonical(db, locId)), observedValues(ex)) : [];
-  const canDrift = isDemo && l.platform === "demo" && l.externalListingId;
   return (
     <section className="card fade-in mt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-medium text-slate-900">Canonical vs published</h2>
-          <p className="mt-1 break-all text-xs text-slate-500">{l.url} · identity match {Math.round(l.identityConfidence * 100)}%{l.platform === "demo" && " · simulated demo listing"}</p>
+          <p className="mt-1 break-all text-xs text-slate-500">{l.url} · identity match {Math.round(l.identityConfidence * 100)}%</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ActionButton url={`/api/listings/${l.id}/recheck`} label="Recheck listing" busyLabel="Rechecking…" />
           {l.platform === "website" && <a className="btn btn-ghost" href={l.url} target="_blank" rel="noreferrer">Open public page</a>}
           <Link className="btn btn-ghost" href="/dashboard/approvals">Review proposals</Link>
-          {canDrift && <ActionButton url="/api/demo/drift" body={{ slug: l.externalListingId, field: "phone", value: "+358 40 000 0000" }} label="Simulate phone drift" className="btn btn-ghost" />}
         </div>
       </div>
       {!ex ? <p className="mt-4 text-sm text-slate-500">Not observed yet.</p> : (

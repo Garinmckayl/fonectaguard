@@ -6,7 +6,7 @@ import { getLocation, bySeverity } from "@/lib/queries";
 import { Badge, Empty, PageHeader, SeverityBadge, ago } from "@/components/ui";
 import { ActionButton } from "@/components/actions";
 import { FIELD_LABELS, type FieldName } from "@/lib/compare";
-import { connectorInfo } from "@/lib/connectors";
+import { connectorInfo, displayName } from "@/lib/connectors";
 import { displayValue } from "@/lib/format";
 
 export default async function Issues(props: { searchParams: Promise<{ severity?: string; tab?: string }> }) {
@@ -40,7 +40,7 @@ export default async function Issues(props: { searchParams: Promise<{ severity?:
             return (
               <li key={d.id} className="card fade-in">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-medium text-slate-900">{info?.label ?? l?.platform} — {FIELD_LABELS[d.fieldName as FieldName]}</h3>
+                  <h3 className="font-medium text-slate-900">{displayName(l?.platform ?? "", l?.url ?? "")} — {FIELD_LABELS[d.fieldName as FieldName]}</h3>
                   <div className="flex gap-2"><SeverityBadge s={d.severity} /><Badge tone="blue">{d.status.replaceAll("_", " ")}</Badge><Badge>{Math.round(d.confidence * 100)}% · {d.classification}</Badge></div>
                 </div>
                 <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">

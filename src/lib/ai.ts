@@ -2,18 +2,30 @@ import { z } from "zod";
 
 const MODEL = "openai/gpt-4o-mini";
 
-async function chat(messages: { role: string; content: string }[], opts: { json?: boolean; max?: number } = {}): Promise<string> {
+export interface ChatResult { content: string; citations: string[] }
+
+/** Low-level OpenRouter call. `model` may carry the `:online` suffix to enable OpenRouter web search. */
+export async function chatFull(messages: { role: string; content: string | unknown[] }[], opts: { json?: boolean; max?: number; model?: string; timeoutMs?: number } = {}): Promise<ChatResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json", "x-title": "FonectaGuard" },
-    body: JSON.stringify({ model: MODEL, messages, temperature: 0.1, max_tokens: opts.max ?? 700, ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
-    signal: AbortSignal.timeout(25_000),
+    body: JSON.stringify({ model: opts.model ?? MODEL, messages, temperature: 0.1, max_tokens: opts.max ?? 700, ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 25_000),
   });
   if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
-  const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return j.choices?.[0]?.message?.content ?? "";
+  const j = (await res.json()) as { citations?: unknown; choices?: { message?: { content?: string; annotations?: { type?: string; url_citation?: { url?: string } }[] } }[] };
+  const msg = j.choices?.[0]?.message;
+  const urls = [
+    ...(Array.isArray(j.citations) ? j.citations : []),
+    ...(msg?.annotations ?? []).map((a) => a.url_citation?.url),
+  ].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u));
+  return { content: msg?.content ?? "", citations: [...new Set(urls)].slice(0, 8) };
+}
+
+async function chat(messages: { role: string; content: string }[], opts: { json?: boolean; max?: number } = {}): Promise<string> {
+  return (await chatFull(messages, opts)).content;
 }
 
 export const BusinessFacts = z.object({

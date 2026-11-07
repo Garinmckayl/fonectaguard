@@ -9,7 +9,8 @@ export interface CfEnv {
   SCAN_QUEUE?: Queue<ScanJob>;
   WORKER_SELF_REFERENCE?: Fetcher;
 }
-export interface ScanJob { locationId: string; scanId: string; paceMs: number; trigger: string }
+/** Queue message. Each message runs in its own Worker invocation (own subrequest budget); AI audits fan out one job per assistant. */
+export interface ScanJob { locationId: string; scanId: string; paceMs: number; trigger: string; kind?: "scan" | "ai_audit" | "public_sources" | "agent"; auditId?: string; assistantId?: string; payload?: Record<string, unknown> }
 
 export function dbFromEnv(env: CfEnv): DB {
   if (env.WORKER_SELF_REFERENCE) setSelfFetcher(env.WORKER_SELF_REFERENCE);

@@ -9,7 +9,7 @@ export const users = sqliteTable("users", {
 });
 
 export const organizations = sqliteTable("organizations", {
-  id: id(), name: text("name").notNull(), ownerUserId: text("owner_user_id").notNull(), isDemo: integer("is_demo").notNull().default(0), createdAt: ts("created_at"),
+  id: id(), name: text("name").notNull(), ownerUserId: text("owner_user_id").notNull(), createdAt: ts("created_at"),
 });
 
 export const organizationMembers = sqliteTable("organization_members", {
@@ -101,9 +101,84 @@ export const auditLogs = sqliteTable("audit_logs", {
   id: id(), organizationId: text("organization_id").notNull(), userId: text("user_id"), action: text("action").notNull(), detailJson: json<unknown>("detail_json"), createdAt: ts("created_at"),
 });
 
-// Simulated external directory platform (clearly demo-only). Acts as the "remote" system of record.
-export const demoListings = sqliteTable("demo_listings", {
-  id: id(), organizationId: text("organization_id").notNull(), platform: text("platform").notNull(), slug: text("slug").notNull().unique(),
-  name: text("name").notNull(), address: text("address").notNull(), phone: text("phone").notNull(), hours: text("hours").notNull(), website: text("website").notNull(),
-  updatedAt: ts("updated_at"),
+// AI search audit: what AI assistants actually say about the business, compared with the verified profile.
+export const aiAudits = sqliteTable("ai_audits", {
+  id: id(), locationId: text("location_id").notNull(), status: text("status").notNull(), startedAt: ts("started_at"), completedAt: integer("completed_at"),
+  accuracy: real("accuracy"), visibility: real("visibility"), factsChecked: integer("facts_checked").notNull().default(0), factsWrong: integer("facts_wrong").notNull().default(0), assistantsTotal: integer("assistants_total").notNull().default(1),
+  /** "verified": compared with owner-verified facts. "website": compared with what the business's own website says (unverified public check). */
+  basis: text("basis").notNull().default("verified"),
+  /** Findings from open public data (OpenStreetMap, Trade Register) captured when a public check starts. */
+  publicSourcesJson: json<unknown>("public_sources_json"),
+  errorJson: json<unknown>("error_json"),
+}, (t) => ({ loc: index("aia_loc").on(t.locationId, t.startedAt) }));
+
+export const aiAuditAnswers = sqliteTable("ai_audit_answers", {
+  id: id(), auditId: text("audit_id").notNull(), assistant: text("assistant").notNull(), model: text("model").notNull(), webSearch: integer("web_search").notNull().default(0),
+  questionKey: text("question_key").notNull(), prompt: text("prompt").notNull(), answer: text("answer"), mentioned: integer("mentioned").notNull().default(0),
+  comparisonsJson: json<{ field: string; classification: string; severity: string | null; stated: unknown; expected: unknown; explanation: string }[]>("comparisons_json"),
+  citationsJson: json<string[]>("citations_json"), sourcesJson: json<unknown[]>("sources_json"), confusedWith: text("confused_with"), error: text("error"), createdAt: ts("created_at"),
+}, (t) => ({ a: index("aiaa_audit").on(t.auditId) }));
+
+// Fixed-window counters for the public (unauthenticated) check endpoint.
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(), windowStart: integer("window_start").notNull(), count: integer("count").notNull(),
 });
+
+// "Connect suggests, the customer approves". Suggestions are produced offline by the model in /ml and loaded here; this app runs contact, decide, apply and confirm.
+export const cnBusinesses = sqliteTable("cn_businesses", {
+  id: id(), // Yext entity id (e.g. FI-D0001)
+  name: text("name").notNull(), city: text("city"), country: text("country").notNull(), segment: text("segment"), story: text("story"),
+  language: text("language").notNull().default("en"), channel: text("channel").notNull().default("EMAIL"), contactName: text("contact_name"), bestWindow: text("best_window"),
+  standing: integer("standing").notNull().default(0), optedOut: integer("opted_out").notNull().default(0),
+  email: text("email"), mobile: text("mobile"), telegramChatId: text("telegram_chat_id"), linkCode: text("link_code").notNull(),
+  voice: integer("voice").notNull().default(0), publishersJson: json<{ name: string; status: string; seconds: number }[]>("publishers_json"), regularJson: json<Record<string, string>>("regular_json"), createdAt: ts("created_at"),
+});
+
+export const cnSuggestions = sqliteTable("cn_suggestions", {
+  id: id(), businessId: text("business_id").notNull(), date: text("date").notNull(), dayKey: text("day_key").notNull(),
+  action: text("action").notNull(), // SUGGEST | FLAG
+  shown: text("shown").notNull(), proposed: text("proposed"), confidence: real("confidence").notNull(), basis: text("basis").notNull(),
+  reasonsJson: json<string[]>("reasons_json").notNull(), viewsEst: real("views_est").notNull().default(0),
+  // auto (>= 0.95, applied for owners with standing permission) | one_tap | ask (owner picks from options) ; see ml/predict.py
+  tier: text("tier").notNull().default("one_tap"), optionsJson: json<string[]>("options_json"), costJson: json<Record<string, unknown>>("cost_json"),
+  status: text("status").notNull(), // draft | sent | applied | auto_applied | declined | kept | undone | failed | flagged
+  finalHours: text("final_hours"), token: text("token").notNull(), messageId: text("message_id"), note: text("note"),
+  undoJson: json<{ had: unknown }>("undo_json"), createdAt: ts("created_at"), sentAt: integer("sent_at"), decidedAt: integer("decided_at"), appliedAt: integer("applied_at"),
+}, (t) => ({ biz: index("cns_biz").on(t.businessId, t.date), tok: uniqueIndex("cns_token").on(t.token), uq: uniqueIndex("cns_uq").on(t.businessId, t.date) }));
+
+/** One bundled message to one owner. */
+export const cnMessages = sqliteTable("cn_messages", {
+  id: id(), businessId: text("business_id").notNull(), channel: text("channel").notNull(), language: text("language").notNull(), token: text("token").notNull(),
+  renderedJson: json<{ title: string; text: string; kind?: "ask" | "auto" }>("rendered_json").notNull(), deliveredVia: text("delivered_via"), externalRef: text("external_ref"), smsTo: text("sms_to"), createdAt: ts("created_at"),
+}, (t) => ({ tok: uniqueIndex("cnmsg_token").on(t.token) }));
+
+/** What each owner has taught us: accepted hours per special day, edits (and the closing-time shift they imply), declines. */
+export const cnMemory = sqliteTable("cn_memory", {
+  id: id(), businessId: text("business_id").notNull(), dayKey: text("day_key").notNull(), lastHours: text("last_hours"),
+  approvals: integer("approvals").notNull().default(0), edits: integer("edits").notNull().default(0), declines: integer("declines").notNull().default(0),
+  closeShiftMin: integer("close_shift_min").notNull().default(0), updatedAt: ts("updated_at"),
+}, (t) => ({ uq: uniqueIndex("cnm_uq").on(t.businessId, t.dayKey) }));
+
+export const cnEvents = sqliteTable("cn_events", {
+  id: id(), businessId: text("business_id").notNull(), suggestionId: text("suggestion_id"), type: text("type").notNull(), detailJson: json<unknown>("detail_json"), createdAt: ts("created_at"),
+}, (t) => ({ biz: index("cne_biz").on(t.businessId, t.createdAt) }));
+
+/** Changes the owner asked for themselves (typed, spoken or photographed), proposed by the agent and applied only after a tap. */
+export const cnChanges = sqliteTable("cn_changes", {
+  id: id(), businessId: text("business_id").notNull(), type: text("type").notNull(), payloadJson: json<Record<string, unknown>>("payload_json").notNull(),
+  source: text("source").notNull(), // text | voice | photo
+  status: text("status").notNull(), // proposed | applied | declined | failed | undone
+  undoJson: json<Record<string, unknown>>("undo_json"), note: text("note"), createdAt: ts("created_at"), appliedAt: integer("applied_at"),
+}, (t) => ({ biz: index("cnc_biz").on(t.businessId, t.createdAt) }));
+
+/** Hard limits the owner set ("never closed on Fridays"). Deterministic: they override the model, the agent and autopilot. */
+export const cnRules = sqliteTable("cn_rules", {
+  id: id(), businessId: text("business_id").notNull(), kind: text("kind").notNull(), paramsJson: json<Record<string, unknown>>("params_json").notNull(), source: text("source").notNull().default("owner"), createdAt: ts("created_at"),
+}, (t) => ({ biz: index("cnr_biz").on(t.businessId) }));
+
+/** Escalation ladder log: which step (contact, nudge, voice, call, ai alert) was taken for which critical finding, and how it went. */
+export const cnAlerts = sqliteTable("cn_alerts", {
+  id: id(), businessId: text("business_id").notNull(), scenario: text("scenario").notNull(), refId: text("ref_id").notNull(), step: text("step").notNull(),
+  outcome: text("outcome").notNull(), // sent | skipped | failed
+  detailJson: json<Record<string, unknown>>("detail_json"), createdAt: ts("created_at"),
+}, (t) => ({ ref: index("cna_ref").on(t.businessId, t.refId) }));

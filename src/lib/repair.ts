@@ -8,6 +8,8 @@ import { audit, emit, notify } from "./events";
 import { connectorInfo, resolveWrite } from "./connectors";
 import { listingLabel, observeListing, recheckListing, snapshotHealth } from "./scan";
 import { displayValue } from "./format";
+import { UNCONFIRMED_SOURCE, loadCanonical } from "./canonical";
+import { fbConnection } from "./facebook-creds";
 
 export class RepairError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -56,7 +58,10 @@ export async function approveRepair(db: DB, a: { proposalId: string; orgId: stri
   if (a.editedValue !== undefined) await editProposal(db, { ...a, newValue: a.editedValue });
   const { p, d, loc, listing } = await load(db, a.proposalId, a.orgId);
   const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, a.orgId)).get());
-  if (!org?.isDemo && loc.verificationStatus !== "verified") throw new RepairError(403, "Verify ownership of your domain (Settings) before approving changes.");
+  if ((await loadCanonical(db, loc.id))[d.fieldName as FieldName]?.source === UNCONFIRMED_SOURCE) throw new RepairError(403, "Confirm your business details (Settings) before approving: this value was only read from a website.");
+  // Control of a connected Facebook Page is proven by its access token (Facebook only issues it to someone who fully manages the Page), so edits to that one Page do not need a verified domain.
+  const ownsFbPage = listing.platform === "facebook" && !!listing.externalListingId && (await fbConnection(db, loc.organizationId))?.pageId === listing.externalListingId;
+  if (loc.verificationStatus !== "verified" && !ownsFbPage) throw new RepairError(403, "Verify ownership of your domain (Settings) before approving changes.");
   const claimed = (await db.update(schema.repairProposals).set({ status: "approved", approvedBy: a.userId, approvedAt: now() }).where(and(eq(schema.repairProposals.id, p.id), eq(schema.repairProposals.status, "awaiting_approval"))).run());
   if (changes(claimed) !== 1) throw new RepairError(409, `Proposal is not awaiting approval (status: ${p.status})`);
   const fresh = (await db.select().from(schema.repairProposals).where(eq(schema.repairProposals.id, p.id)).get())!;
@@ -106,13 +111,15 @@ export async function executeRepair(db: DB, proposalId: string, opts: { paceMs?:
 
   // 2. Revalidate target state against what was approved.
   const read = await observeListing(db, listing);
-  const current = read.extraction?.[field];
-  if (!current) return await fail(`could not re-read the target field (${read.error ?? "missing"})`);
-  const alreadyCorrect = isMatch(compareField(field, change.newValue, current.raw).classification);
-  const unchanged = isMatch(compareField(field, change.oldValue, current.raw).classification);
+  if (!read.extraction) return await fail(`could not re-read the target (${read.error ?? "unavailable"})`);
+  const current = read.extraction[field];
+  // A field that was empty when proposed (e.g. missing on OpenStreetMap) is "unchanged" while it is still empty.
+  if (!current && d.observedValueJson !== null && d.observedValueJson !== undefined) return await fail(`could not re-read the target field (${read.error ?? "missing"})`);
+  const alreadyCorrect = !!current && isMatch(compareField(field, change.newValue, current.raw).classification);
+  const unchanged = current ? isMatch(compareField(field, change.oldValue, current.raw).classification) : true;
   if (!alreadyCorrect && !unchanged) {
     await setStatus(db, p, "reopened");
-    ev("revalidation_required", `The published ${FIELD_LABELS[field].toLowerCase()} changed since approval ("${current.raw}"). Re-approval required.`);
+    ev("revalidation_required", `The published ${FIELD_LABELS[field].toLowerCase()} changed since approval ("${current?.raw ?? ""}"). Re-approval required.`);
     return { status: "reopened" };
   }
 
@@ -127,7 +134,7 @@ export async function executeRepair(db: DB, proposalId: string, opts: { paceMs?:
     (await db.update(schema.repairAttempts).set({ connectorResponseJson: res.response, status: res.ok ? "submitted" : "failed" }).where(eq(schema.repairAttempts.idempotencyKey, key)).run());
     await audit(db, org, p.approvedBy, "repair.submitted", { proposalId: p.id, ok: res.ok, response: res.response });
     if (!res.ok) return await fail("the platform rejected the update");
-    ev("submitted", target.connectionPlatform === "demo" ? `${label} accepted the update (simulated platform).` : `Committed the change to ${target.externalId} on GitHub.`, { response: res.response });
+    ev("submitted", `Committed the change to ${target.externalId} on GitHub.`, { response: res.response });
   }
   if (target.connector.awaitPublished) {
     ev("deploying", "Waiting for GitHub Pages to deploy the change…");

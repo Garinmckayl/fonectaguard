@@ -8,6 +8,76 @@
       "when": 1793894452286,
       "tag": "0000_moaning_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793939140110,
+      "tag": "0001_yielding_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793940181286,
+      "tag": "0002_exotic_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793941025461,
+      "tag": "0003_new_black_bird",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793941538733,
+      "tag": "0004_unusual_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793943797473,
+      "tag": "0005_fine_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793998103626,
+      "tag": "0006_short_mimic",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794003346797,
+      "tag": "0007_rich_omega_flight",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794003392729,
+      "tag": "0008_moaning_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794014212878,
+      "tag": "0009_owner_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794018696719,
+      "tag": "0010_critical_alerts",
+      "breakpoints": true
     }
   ]
 }

@@ -24,7 +24,7 @@ export default async function Overview(props: { searchParams: Promise<{ scan?: s
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Badge tone={tone}><span className="pulse-dot mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current" />{health.status === "insufficient" ? "Awaiting first scan" : "Monitoring active"}</Badge>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{headline}</h1>
+            <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight text-ink">{headline}</h1>
             <p className="mt-2 max-w-xl text-sm text-slate-500">FonectaGuard continuously monitors your online presence and catches inaccuracies before customers do.</p>
             <p className="mt-2 text-xs text-slate-500">Last successful scan: {lastScan ? ago(lastScan.completedAt) : "never"} · Monitoring: {d.loc.monitoringFrequency}</p>
           </div>
@@ -86,8 +86,8 @@ export default async function Overview(props: { searchParams: Promise<{ scan?: s
 function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div className="card fade-in">
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 font-display text-4xl font-extrabold text-ink">{value}</p>
       <p className="mt-1 text-xs text-slate-500">{sub}</p>
     </div>
   );

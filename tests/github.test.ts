@@ -22,3 +22,16 @@ describe("github connector helpers", () => {
     expect(sameSite("https://u.github.io/shop/", "https://u.github.io/other")).toBe(false);
   });
 });
+
+import { platformForUrl, connectorInfo } from "@/lib/connectors";
+describe("directory platform recognition", () => {
+  it("maps real directory URLs to platforms with a manual-submission path, and leaves other pages as generic web", () => {
+    expect(platformForUrl("https://www.fonecta.fi/yritykset/aurora")).toBe("fonecta");
+    expect(platformForUrl("https://www.finder.fi/Kahvilat/Aurora")).toBe("finder");
+    expect(platformForUrl("https://www.google.com/maps/place/Aurora")).toBe("google");
+    expect(platformForUrl("https://sites.google.com/view/aurora")).toBe("web");
+    expect(platformForUrl("https://www.yelp.com/biz/aurora")).toBe("yelp");
+    expect(platformForUrl("https://blog.example.org/aurora")).toBe("web");
+    expect(connectorInfo("fonecta")).toMatchObject({ state: "manual_approval_link", capabilities: ["read"] });
+  });
+});

@@ -7,7 +7,7 @@ import { Badge, Empty, PageHeader, ago } from "@/components/ui";
 import { ActionButton } from "@/components/actions";
 import { ApprovalActions } from "@/components/approval-actions";
 import { FIELD_LABELS, type FieldName } from "@/lib/compare";
-import { connectorInfo } from "@/lib/connectors";
+import { displayName } from "@/lib/connectors";
 
 const TABS: Record<string, { label: string; statuses: string[] }> = {
   needs: { label: "Needs approval", statuses: ["awaiting_approval", "reopened"] },
@@ -28,6 +28,8 @@ export default async function Approvals(props: { searchParams: Promise<{ tab?: s
   const all = discs.size ? (await db.select().from(schema.repairProposals).where(inArray(schema.repairProposals.discrepancyId, [...discs.keys()])).orderBy(desc(schema.repairProposals.createdAt)).all()) : [];
   const counts = Object.fromEntries(Object.entries(TABS).map(([k, t]) => [k, all.filter((p) => t.statuses.includes(p.status)).length]));
   const rows = all.filter((p) => TABS[tab].statuses.includes(p.status));
+  const manualDiscs = rows.filter((p) => p.status === "manual_submission_required").map((p) => p.discrepancyId);
+  const manualListing = new Map<string, string>(manualDiscs.length ? (await db.select({ id: schema.discrepancies.id, l: schema.discrepancies.listingId }).from(schema.discrepancies).where(inArray(schema.discrepancies.id, manualDiscs)).all()).map((d) => [d.id, d.l] as [string, string]) : []);
   return (
     <div>
       <PageHeader title="Resolution Center" sub="Nothing changes externally without your explicit approval. Fixes are verified after they are applied." />
@@ -40,7 +42,7 @@ export default async function Approvals(props: { searchParams: Promise<{ tab?: s
         <ul className="space-y-4">
           {await Promise.all(rows.map(async (p) => {
             const c = p.proposedChangeJson, ev = p.evidenceJson as { listingUrl?: string; observed?: { excerpt?: string; observedAt?: number }; corroboration?: { source: string; url: string; value: string }[]; manageUrl?: string | null };
-            const label = connectorInfo(p.targetPlatform)?.label ?? p.targetPlatform;
+            const label = displayName(p.targetPlatform, ev.listingUrl ?? "");
             const attempts = (await db.select().from(schema.repairAttempts).where(eq(schema.repairAttempts.proposalId, p.id)).all());
             return (
               <li key={p.id} className="card fade-in">
@@ -53,6 +55,8 @@ export default async function Approvals(props: { searchParams: Promise<{ tab?: s
                   <div className="rounded-lg border border-accent/20 bg-accent/5 p-3"><p className="text-xs text-slate-500">Correct</p>{String(c.newValue)}</div>
                 </div>
                 <p className="mt-3 text-sm text-slate-700">{p.explanation}</p>
+                {p.targetPlatform === "facebook" && c.capability === "write" && <p className="mt-2 rounded-lg border-[1.5px] border-ink bg-hi/40 px-3 py-2 text-xs text-ink">Approving changes your <b>live Facebook Page</b>. It is verified by re-reading the Page.</p>}
+                {p.targetPlatform === "openstreetmap" && c.capability === "write" && <p className="mt-2 rounded-lg border-[1.5px] border-ink bg-hi/40 px-3 py-2 text-xs text-ink">Approving saves a <b>public edit</b> to OpenStreetMap under your connected account, with a changeset comment. It is verified by re-reading the object.</p>}
                 <details className="mt-2 text-sm text-slate-500">
                   <summary className="cursor-pointer text-accent">Review evidence</summary>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -65,6 +69,17 @@ export default async function Approvals(props: { searchParams: Promise<{ tab?: s
                   p.status === "reopened" ? <p className="mt-3 text-sm text-amber-600">The published value changed after approval. Run a scan to regenerate a proposal.</p> :
                   <div className="mt-4"><ApprovalActions id={p.id} current={String(c.newValue)} canAct={canWrite(s.role)} />{c.capability !== "write" && ev.manageUrl && <p className="mt-2 text-xs text-slate-500">Manual submission: <a className="underline" href={ev.manageUrl} target="_blank" rel="noreferrer">open {label} management</a></p>}</div>
                 ) : null}
+                {p.status === "manual_submission_required" && (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-slate-700">
+                    <p className="font-medium text-slate-900">Your turn: submit this correction on {label}</p>
+                    <p className="mt-1">Set <b>{FIELD_LABELS[c.field as FieldName].toLowerCase()}</b> to <b>{String((p.approvedPayloadJson as { newValue?: unknown } | null)?.newValue ?? c.newValue)}</b>. FonectaGuard has no write access to this platform, so nothing was changed.</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {ev.manageUrl && <a className="btn btn-primary" href={ev.manageUrl} target="_blank" rel="noreferrer">Open {label}</a>}
+                      {manualListing.get(p.discrepancyId) && <ActionButton url={`/api/listings/${manualListing.get(p.discrepancyId)}/recheck`} label="I've submitted it — verify now" busyLabel="Re-reading…" />}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">The listing is re-read to confirm; the issue closes only when the published value matches.</p>
+                  </div>
+                )}
                 {p.status === "failed" && <div className="mt-3"><ActionButton url={`/api/repairs/${p.id}/retry`} label="Retry safely" busyLabel="Retrying…" /></div>}
                 {p.approvedAt && <p className="mt-3 text-xs text-slate-500">Approved by {p.approvedBy === s.userId ? s.userName : p.approvedBy} {ago(p.approvedAt)}{attempts.length ? ` · ${attempts.length} execution attempt(s): ${attempts.map((a) => a.status).join(", ")}` : ""}</p>}
               </li>

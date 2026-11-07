@@ -1,0 +1,1 @@
+ALTER TABLE `ai_audits` ADD `public_sources_json` text;
