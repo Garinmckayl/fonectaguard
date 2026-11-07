@@ -59,14 +59,15 @@ def fit_final():
     class_models = []
     for seed in (7, 11, 23):
         PARAMS["seed"] = seed; class_models.append(fit(X, y))
-    return class_models, fit_hours(X, tr), X
+    return class_models, fit_hours(X, tr), X, PeerHours(tr)
 
-def predict_all(class_models, hours_models, X_ref):
+def predict_all(class_models, hours_models, X_ref, peer):
     df = pd.read_pickle("challenge_out/feat_2026.pkl")
+    if USE_CTX: df = add_context(df)
     X = prep(df)
     for c in CATS: X[c] = pd.Categorical(X[c], categories=X_ref[c].cat.categories)   # same category codes as training
     P = np.mean([m.predict(X) for m in class_models], axis=0)
-    reg = predict_hours(hours_models, X, df)
+    reg = [peer.predict(r) or h for r, h in zip(df.itertuples(), predict_hours(hours_models, X, df))]
     return df, P, reg
 
 def pct(x): return f"{round(100 * x)}%"
@@ -113,8 +114,8 @@ def reasons(r, ent, mall_name, p, action, hours, EV=None, SB=()):
     return basis or "model", out
 
 def main():
-    class_models, hours_models, X_ref = fit_final()
-    df, P, reg = predict_all(class_models, hours_models, X_ref)
+    class_models, hours_models, X_ref, peer = fit_final()
+    df, P, reg = predict_all(class_models, hours_models, X_ref, peer)
     dec = decide(df, P, TC, TO, TR, reg, respect_optout=False)
     w = World()
     mall_names = {eid: w.ents[e["c_shoppingCenterEntityId"]]["name"] for eid, e in w.ents.items() if e.get("c_shoppingCenterEntityId") in w.ents}

@@ -6,12 +6,16 @@ from ml.common import *
 from ml.evaluate import score as score_fn, near
 from ml.features import span
 from ml.enc import add_encodings
+from ml.ctx import add_context
+from ml.peer_hours import PeerHours
 
+USE_CTX = "--no-ctx" not in sys.argv
 CATS = ["country", "segment", "tier", "day_key", "day_type"]
 NOFEAT = {"ge_prev_hours", "ge_cur_hours", "mall_ly_hours", "truth_closed", "needs_change", "city", "mall", "event_id", "closed_signal", "entity_closed", "off_s_t", "off_e_t", "entity_id", "date", "split", "shown", "label", "truth", "exp", "ly1_hours", "ly2_hours", "mall_hours", "pilot_final", "views"}
 
 def load(season):
     df = pd.read_pickle(f"challenge_out/feat_{season}.pkl")
+    if USE_CTX: df = add_context(df)
     lab = pd.read_csv({2026: L("dev_labels_2026.csv"), 2025: L("dev_labels_2025_backtest.csv"), 2024: "challenge_out/labels_2024.csv"}[season])
     lab = lab.rename(columns={"truth_hours": "truth", "expected_action": "exp", "expected_search_views": "views"})
     df = df.merge(lab[["entity_id", "date", "truth", "exp", "views", "mismatch_type"]], on=["entity_id", "date"], how="left")
@@ -109,7 +113,8 @@ if __name__ == "__main__":
             Xa, Xb = pd.concat([Xa, ea], axis=1), pd.concat([Xb, eb], axis=1)
         m = fit(Xa, y[a]); oof[b] = m.predict(Xb)
         hm_ = fit_hours(Xa, tr.iloc[a].reset_index(drop=True)); ph = predict_hours(hm_, Xb, tr.iloc[b].reset_index(drop=True))
-        for i, h in zip(b, ph): oof_h[i] = h
+        peer = PeerHours(tr.iloc[a])   # owner has no history: what scored best for similar businesses on this day
+        for i, h in zip(b, ph): oof_h[i] = peer.predict(tr.iloc[i]) or h
         print("fold", f, "done")
     np.save("challenge_out/oof.npy", oof); tr["oof_hours"] = oof_h; tr.to_pickle("challenge_out/train_rows.pkl")
     for season, lab in ((2026, L("dev_labels_2026.csv")), (2025, L("dev_labels_2025_backtest.csv"))):

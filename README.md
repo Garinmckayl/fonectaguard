@@ -13,6 +13,10 @@ Live: **https://fonectaguard.arcumet.com** (control room at `/connect`, access l
 
 We do **not** claim more. Early in-sample numbers (77.8) leaked training labels and were retracted; every number above is out-of-fold, grouped by business. The scorer is our port of the published rules (we did not run downloaded organiser code); run the official `evaluate.py` on `predictions_2026.csv` to check us.
 
+## Try it yourself (30 seconds, no login)
+
+**https://fonectaguard.arcumet.com/try** opens your own private copy of the demo café's decision page, exactly as an owner would see it from a message. Tap **Approve**, **Edit** or **Decline**: an approval writes to the real Yext sandbox, is read back to verify, and shows where the change will appear and how fast. Nobody is contacted, and your copy is deleted after a day. The control room (`/connect`), the Telegram bot (@fonguardbot) and the WhatsApp sandbox are described in the submission notes.
+
 ## Run it
 
 ```bash
