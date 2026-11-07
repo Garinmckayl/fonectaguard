@@ -6,12 +6,12 @@ Live: **https://fonectaguard.arcumet.com** (control room at `/connect`, access l
 
 | | |
 |---|---|
-| Out-of-fold score on the dev labels (ported official scorer) | **63.3** vs ported baseline **54.5** |
-| 2025 back-test (train on 2024, score 2025) | ≈ 60.3 |
+| Out-of-fold score on the dev labels (ported official scorer) | **63.6** (official `evaluate.py`) vs baseline **54.5** |
+| 2025 back-test (train on 2024, score 2025) | ≈ 60.7 |
 | When it suggests: precision / recall | ≈ 0.85 / ≈ 0.70 |
 | Businesses with history / without | ≈ 95% / ≈ 55% of days state-correct |
 
-We do **not** claim more. Early in-sample numbers (77.8) leaked training labels and were retracted; every number above is out-of-fold, grouped by business. The scorer is our port of the published rules (we did not run downloaded organiser code); run the official `evaluate.py` on `predictions_2026.csv` to check us.
+We do **not** claim more. Early in-sample numbers (77.8) leaked training labels and were retracted; every number above is out-of-fold, grouped by business. We also ran the organisers' `evaluate.py` on `predictions_2026.csv`: 63.62.
 
 ## Try it yourself (30 seconds, no login)
 
@@ -83,7 +83,7 @@ When a suggested change is close to its date and still undecided, the system goe
 Reviews and analytics dips are in the model but weak; the numbers say so below.
 
 ## What we tried that didn't work
-- **In-sample scoring.** A first 77.8 was measured on rows the model had trained on; we retracted it and report out-of-fold only (63.3).
+- **In-sample scoring.** A first 77.8 was measured on rows the model had trained on; we retracted it and report out-of-fold only (63.6).
 - **Reviews and analytics as primary triggers.** The planted signal is weak and noisy (misleading reviews are included on purpose); they only matter for the closed-for-good flag. Google-user edits carry far more signal.
 - **Pushing past ~64.** Most lost points are days of customers *without* history (≈ 55% state-correct); no feature we tried fixes information that is not in the data. We chose precision and an honest "ask" tier over inflating recall.
 - **Photo, phone and address detection can't be validated on this data.** The synthetic dataset only models opening hours, so the agent's other change types (and the Issue Radar's profile checks) are tested for safety and correctness with tests, not for detection accuracy. Outdated images are on the roadmap only; nothing in the product claims to detect them.
