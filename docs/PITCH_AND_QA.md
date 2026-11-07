@@ -12,7 +12,7 @@ Have ready: phone with WhatsApp and Telegram open on the demo chat, laptop on `f
 
 **0:45 The guardian.** "It's a guardian, not a detector. It wakes every fifteen minutes. If he doesn't answer: a reminder, a voice note, and for critical days a call where he presses one. His own rules always win: 'never close on Fridays' is code, not a model. And it's a real agent: he can send a photo of the sign on his door, or just ask what's wrong."
 
-**1:05 The proof.** "Scored honestly on data the model never saw: 63.3 against a 54.5 baseline. And in the 2025 pilot, 47% of owners never answered. That is the gap. WhatsApp was answered 65% of the time in under an hour; e-mail 40% in seventeen."
+**1:05 The proof.** "Scored honestly on data the model never saw: 63.6 against a 54.5 baseline. And in the 2025 pilot, 47% of owners never answered. That is the gap. WhatsApp was answered 65% of the time in under an hour; e-mail 40% in seventeen."
 
 **1:20 The ask.** "In the organiser's data nearly every business has days like this: roughly fourteen million people a season across Connect's hundred thousand customers. Connect shouldn't wait for owners to log in. It should go to them. Scan the card and approve a change yourself."
 
@@ -24,8 +24,8 @@ Have ready: phone with WhatsApp and Telegram open on the demo chat, laptop on `f
 **2. "What is real and what is synthetic?"**
 "Real: the Yext sandbox write and read-back, WhatsApp and Telegram, e-mail, voice notes, the agent, the rules, the escalation policy, the 15-minute cron. Synthetic: the organiser's dataset, so every business, history and number. The 14 million is an extrapolation from it, and the pilot plan exists to replace it with measured numbers."
 
-**3. "How is the 63.3 computed? Could it be inflated?"**
-"Out of fold: every business is scored by a model that never saw it, using a port of the published scoring rules. An earlier in-sample figure of 77.8 leaked training labels and we retracted it. Our 2025 back-test is about 60.3, so expect the hidden test to land near 60."
+**3. "How is the 63.6 computed? Could it be inflated?"**
+"Out of fold: every business is scored by a model that never saw it, using a port of the published scoring rules. An earlier in-sample figure of 77.8 leaked training labels and we retracted it. Our 2025 back-test is about 60.7, so expect the hidden test to land near 60."
 
 **4. "How does it learn?"**
 "Per owner and per day: approvals, edits and declines are remembered, an edit's closing-time shift is applied to sibling days, and a decline means we never suggest that day again. Each season the model is retrained on realised outcomes."

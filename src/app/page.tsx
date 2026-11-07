@@ -81,7 +81,7 @@ export default async function Landing() {
             ))}
           </ol>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[["63.3", "out-of-fold score on the dev labels, against 54.5 for the baseline", "!bg-hi"], ["≈ 0.85", "precision when it suggests a change (recall about 0.70)", "!bg-brand-soft"], ["≈ 55%", "of days right for customers with no history, about 95% with history. We say so.", "!bg-[#FFD3CC]"]].map(([n, t, bg]) => (
+            {[["63.6", "out-of-fold score on the dev labels, against 54.5 for the baseline", "!bg-hi"], ["≈ 0.85", "precision when it suggests a change (recall about 0.70)", "!bg-brand-soft"], ["≈ 55%", "of days right for customers with no history, about 95% with history. We say so.", "!bg-[#FFD3CC]"]].map(([n, t, bg]) => (
               <div key={n} className={`card-pop !p-6 ${bg}`}><p className="font-display text-5xl font-extrabold text-ink">{n}</p><p className="mt-2 text-sm font-medium leading-snug text-ink">{t}</p></div>
             ))}
           </div>

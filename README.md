@@ -6,12 +6,12 @@ Live: **https://fonectaguard.arcumet.com** (control room at `/connect`, access l
 
 | | |
 |---|---|
-| Out-of-fold score on the dev labels (ported official scorer) | **63.6** (official `evaluate.py`) vs baseline **54.5** |
+| Out-of-fold score on the dev labels (our port of the published scoring rules) | **63.6** vs ported baseline **54.5** |
 | 2025 back-test (train on 2024, score 2025) | ≈ 60.7 |
-| When it suggests: precision / recall | ≈ 0.85 / ≈ 0.70 |
+| When it suggests: precision / recall | ≈ 0.86 / ≈ 0.71 |
 | Businesses with history / without | ≈ 95% / ≈ 55% of days state-correct |
 
-We do **not** claim more. Early in-sample numbers (77.8) leaked training labels and were retracted; every number above is out-of-fold, grouped by business. We also ran the organisers' `evaluate.py` on `predictions_2026.csv`: 63.62.
+We do **not** claim more. Early in-sample numbers (77.8) leaked training labels and were retracted; every number above is out-of-fold, grouped by business. The scorer is our port of the published rules (`ml/evaluate.py`): it gives 63.62 on `predictions_2026.csv`. Run the organisers' own `evaluate.py` on the same file to check us; we expect the hidden test score to land a few points lower.
 
 ## Try it yourself (30 seconds, no login)
 

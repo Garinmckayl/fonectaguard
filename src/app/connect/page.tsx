@@ -55,7 +55,7 @@ export default async function Console(props: { searchParams: Promise<{ b?: strin
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6">
-      <header className="flex flex-wrap items-center justify-between gap-3"><Link href="/" className="flex items-center gap-2.5"><LogoMark /><Wordmark /></Link><div className="text-right"><p className="font-mono text-xs font-bold uppercase tracking-widest text-slate-500">Connect Suggests · control room</p><p className="text-xs text-slate-500">{all.length} businesses loaded · {total} suggestions · model out-of-fold score 63.3 vs baseline 54.5</p></div></header>
+      <header className="flex flex-wrap items-center justify-between gap-3"><Link href="/" className="flex items-center gap-2.5"><LogoMark /><Wordmark /></Link><div className="text-right"><p className="font-mono text-xs font-bold uppercase tracking-widest text-slate-500">Connect Suggests · control room</p><p className="text-xs text-slate-500">{all.length} businesses loaded · {total} suggestions · model out-of-fold score 63.6 vs baseline 54.5</p></div></header>
       <div className="mt-6 grid gap-6 lg:grid-cols-[18rem_1fr]">
         <aside className="card !p-3 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto" aria-label="Businesses">
           <p className="px-2 pb-1 font-mono text-[11px] font-bold uppercase tracking-wider text-slate-500">Demo storylines</p>
