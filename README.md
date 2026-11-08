@@ -6,8 +6,8 @@ Live: **https://fonectaguard.arcumet.com** (control room at `/connect`, access l
 
 | | |
 |---|---|
-| Out-of-fold score on the dev labels (our port of the published scoring rules) | **63.6** vs ported baseline **54.5** |
-| 2025 back-test (train on 2024, score 2025) | ≈ 60.7 |
+| Out-of-fold score on the dev labels (our port of the published scoring rules) | **64.4** vs ported baseline **54.5** |
+| 2025 back-test (train on 2024, score 2025) | ≈ 62.3 |
 | When it suggests: precision / recall | ≈ 0.86 / ≈ 0.71 |
 | Businesses with history / without | ≈ 95% / ≈ 55% of days state-correct |
 
@@ -53,7 +53,7 @@ When a suggested change is close to its date and still undecided, the system goe
 
 ### Beyond the brief (what makes it a product)
 - **A safety floor that overrides everything.** The owner can say "never close on Fridays", "never close before 22:00 on Fridays", "don't touch 6 Dec", "never change my phone number". These are plain deterministic rules (`src/lib/connect/rules.ts`), not a model: they withhold suggestions (`blocked`, with the rule as the reason), stop autopilot, and stop agent changes even if a photo or voice note asks for them. Rules are set and removed by the owner with a tap.
-- **An agent for everything else.** Owners can text, send a **voice note** (ElevenLabs speech-to-text and an "AI voice" reply) or a **photo of a sign** and the agent proposes changes to hours, closures, phone, website, e-mail, description or address. It only proposes, the owner taps, Yext is read back, undo restores. Instructions hidden in photos or messages are data, never commands: the model can only emit a fixed set of validated change types.
+- **An agent for everything else.** Owners can text, send a **voice note** (ElevenLabs speech-to-text and an "AI voice" reply) or a **photo of a sign** and the agent proposes changes to hours, closures, phone, website, e-mail, description or address. It only proposes, the owner taps, Yext is read back, undo restores. Instructions hidden in photos or messages are data, never commands: the model can only emit a fixed set of validated change types. **Photos are read with the Gemini API** (`gemini-flash-latest`, called directly with an AI Studio key, with the default model as a fallback); the event log records which model read each photo.
 - **Issue Radar.** "What should I fix?" returns one list of problems we can really detect for that business: hours waiting, listings that may show a closed business as open, owner rules that held something back, profile fields missing in the live listing, publishers not connected, and what AI assistants say about the business (checked on request and weekly). It also states what is **not** watched yet (photo freshness, review replies, menus).
 - **What AI assistants say about you.** Real assistants (Perplexity Sonar, GPT-4o mini with web search) are asked what customers ask; wrong or mixed-up answers are traced to the source that carries them. See *The product around it* below.
 
@@ -78,14 +78,16 @@ When a suggested change is close to its date and still undecided, the system goe
 | Google users' date-specific edits (publisher suggestions) | Strong but sparse: a user suggestion for the exact date is a high-precision candidate and the main trigger for the closed-for-good flag. Wrong user edits exist, so it never acts alone. | Yext Listings › Publisher Suggestions |
 | Shopping-centre hours, including last year's | Tenants usually follow the centre: this year's published hours if present, else last year's pattern. | The centres' own websites (published 4–8 weeks before Christmas) |
 | Peer benchmarks | Share of similar businesses (same segment, city/country) closed or open on that day: the only help for new customers. | Aggregates over Fonecta's ~100,000 Connect customers |
+| Last year's activity footprint (daily Google analytics) | Customer actions on the same day last year vs that business's normal same weekday: a business that was closed shows a drop even if it never entered holiday hours. Also per business ("how much does it drop on holidays?") and per segment. Worth +0.8 points; it helps exactly the customers without history. | Yext Analytics / Google Business Profile performance API |
+| Peer hours on "open, but different" days | Without own history, propose the hours that scored best for similar businesses on that day (exact hits 20% → 46%). | Connect's own approval log across customers |
 | Local events and school breaks | Arena nights extend pub hours; school holidays extend play-centre hours (explained in the owner's message). | Helsinki LinkedEvents, municipal school calendars |
 
-Reviews and analytics dips are in the model but weak; the numbers say so below.
+Reviews are in the model but weak; the numbers say so below.
 
 ## What we tried that didn't work
-- **In-sample scoring.** A first 77.8 was measured on rows the model had trained on; we retracted it and report out-of-fold only (63.6).
-- **Reviews and analytics as primary triggers.** The planted signal is weak and noisy (misleading reviews are included on purpose); they only matter for the closed-for-good flag. Google-user edits carry far more signal.
-- **Pushing past ~64.** Most lost points are days of customers *without* history (≈ 55% state-correct); no feature we tried fixes information that is not in the data. We chose precision and an honest "ask" tier over inflating recall.
+- **In-sample scoring.** A first 77.8 was measured on rows the model had trained on; we retracted it and report out-of-fold only (64.4).
+- **Reviews as a primary trigger.** The signal is weak and noisy (misleading reviews are included on purpose); they only matter for the closed-for-good flag. Google-user edits carry far more signal.
+- **Pushing past ~64.** With the right state on every day our hours would score 91.5, so the whole gap is deciding *whether* a day changes, mostly for customers without history. Even an oracle that knew each business's true answers on its other days only reaches 66.3. Model tuning, same-name "chains", weather and categories gave nothing beyond noise. We chose precision and an honest "ask" tier over inflating recall.
 - **Photo, phone and address detection can't be validated on this data.** The synthetic dataset only models opening hours, so the agent's other change types (and the Issue Radar's profile checks) are tested for safety and correctness with tests, not for detection accuracy. Outdated images are on the roadmap only; nothing in the product claims to detect them.
 - **Running the organiser's downloaded scorer.** We ported its published rules instead of executing downloaded code; use the official `evaluate.py` to confirm.
 - **Live public-holiday API in the model.** See the bonus section: it covers only the official holidays and would have cost us the eves and commercial days the model uses.

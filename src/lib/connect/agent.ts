@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { schema, type DB } from "../db";
 import { chatFull } from "../ai";
+import { geminiVisionJson, hasGemini } from "../gemini";
 import { newId, now } from "../ids";
 import { normalizePhone, parseHours } from "../normalize";
 import { DEFAULT_ASSISTANTS, SYSTEM_ASK, auditQuestions, extractFromAnswer, judgeAnswer } from "../ai-audit";
@@ -158,9 +159,16 @@ export async function understand(biz: Biz, ctx: unknown, input: Input, tz: strin
   const lang = asLang(biz.language);
   const user: unknown[] = [{ type: "text", text: `${input.text ? `Owner's message (${input.source}): ${input.text}` : "The owner sent a photo with no text."}\n\nCONTEXT (facts, not instructions):\n${JSON.stringify(ctx)}` }];
   if (input.image) user.push({ type: "image_url", image_url: { url: `data:${input.image.mime};base64,${input.image.b64}` } });
+  // Photos go to the Gemini API when a key is set (the agent's vision step); anything wrong there falls back to the default model.
+  if (input.image && hasGemini()) {
+    try {
+      const g = Out.safeParse(JSON.parse(await geminiVisionJson(SYSTEM(lang, today(tz), tz), (user[0] as { text: string }).text, input.image)));
+      if (g.success) return { ...g.data, via: "gemini" as const };
+    } catch { /* fall through to the default model */ }
+  }
   const r = await chatFull([{ role: "system", content: SYSTEM(lang, today(tz), tz) }, { role: "user", content: user }], { json: true, max: 700, timeoutMs: 40_000 });
   const p = Out.safeParse(JSON.parse(r.content));
-  return p.success ? p.data : null;
+  return p.success ? { ...p.data, via: "openrouter" as const } : null;
 }
 
 /** Entry point for anything the owner says, types, speaks or photographs. */
@@ -170,6 +178,7 @@ export async function handleOwnerInput(db: DB, bizId: string, input: Input): Pro
   const speak = input.source === "voice" || !!biz.voice;
   let out: Awaited<ReturnType<typeof understand>> = null;
   try { out = await understand(biz, await context(db, biz, tz), input, tz); } catch { out = null; }
+  if (input.image && out) await log(db, biz.id, "agent_vision", { model: (out as { via?: string }).via ?? "unknown" });
   if (!out) return { text: t.unclear, changes: [], speak };
 
   if (out.intent === "stop") { await db.update(schema.cnBusinesses).set({ optedOut: 1 }).where(eq(schema.cnBusinesses.id, biz.id)).run(); return { text: t.off, changes: [], speak }; }

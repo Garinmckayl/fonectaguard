@@ -88,6 +88,32 @@ describe("photo, text and voice -> a proposal, never a write", () => {
     expect(w.yext.mainPhone).toBeNull();                                               // restored
   });
 
+  it("with a Gemini key the photo is read by the Gemini API; if Gemini fails the default model takes over", async () => {
+    const d = plus(9), seen: { gemini: number; headers: string; hadImage: boolean } = { gemini: 0, headers: "", hadImage: false };
+    const w = world(() => ({ intent: "change", changes: [{ type: "special_hours", date: d, hours: "10:00-14:00" }] }));
+    const prev = globalThis.fetch; let geminiOk = true;
+    vi.stubGlobal("fetch", async (url: string, init?: { body?: string; headers?: Record<string, string> }) => {
+      if (new URL(url).hostname === "generativelanguage.googleapis.com") {
+        seen.gemini++; seen.headers = JSON.stringify(init?.headers ?? {}); seen.hadImage = String(init?.body).includes("inline_data");
+        if (!geminiOk) return new Response("{}", { status: 503 });
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ intent: "change", answer: "I read the sign.", changes: [{ type: "special_hours", date: d, hours: "closed" }] }) }] } }] }), { status: 200 });
+      }
+      return prev(url, init as never);
+    });
+    process.env.GEMINI_API_KEY = "test-key";
+    const id = await seed(db);
+    const r = await handleOwnerInput(db, id, { image: { mime: "image/jpeg", b64: "AAAA" }, source: "photo" });
+    expect(seen.gemini).toBe(1); expect(seen.hadImage).toBe(true); expect(seen.headers).toContain("x-goog-api-key");
+    expect(r.changes).toHaveLength(1); expect(r.changes[0].label).toMatch(/closed|suljettu/i);                    // the answer came from Gemini ("closed"), not the default model ("10-14")
+    const ev = await db.select().from(schema.cnEvents).all();
+    expect(ev.find((e) => e.type === "agent_vision")?.detailJson).toMatchObject({ model: "gemini" });
+    geminiOk = false;                                                                                          // Gemini down: the default model answers
+    const r2 = await handleOwnerInput(db, id, { image: { mime: "image/jpeg", b64: "AAAA" }, source: "photo" });
+    expect(r2.changes).toHaveLength(1); expect(r2.changes[0].label).toContain("10:00");
+    expect(w.c.yextPuts).toHaveLength(0);                                                                      // still nothing written without a tap
+    delete process.env.GEMINI_API_KEY; vi.stubGlobal("fetch", prev);
+  });
+
   it("a closure period and a regular-hours change touch only what they say, and both undo cleanly", async () => {
     const a = plus(3), b = plus(5);
     const w = world(() => ({ intent: "change", changes: [{ type: "temporary_closure", from: a, to: b }, { type: "regular_hours", days: { friday: "09:00-12:00" } }] }));
