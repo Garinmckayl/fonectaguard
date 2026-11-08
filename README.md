@@ -57,6 +57,16 @@ When a suggested change is close to its date and still undecided, the system goe
 - **Issue Radar.** "What should I fix?" returns one list of problems we can really detect for that business: hours waiting, listings that may show a closed business as open, owner rules that held something back, profile fields missing in the live listing, publishers not connected, and what AI assistants say about the business (checked on request and weekly). It also states what is **not** watched yet (photo freshness, review replies, menus).
 - **What AI assistants say about you.** Real assistants (Perplexity Sonar, GPT-4o mini with web search) are asked what customers ask; wrong or mixed-up answers are traced to the source that carries them. See *The product around it* below.
 
+## Agent-human collaboration with Entire
+
+We built FonectaGuard as a human working with Claude Code, and adopted [Entire](https://entire.com) for the final stretch. The repo carries the evidence:
+
+- `.entire/settings.json` and `.claude/settings.json` enable Entire's session capture.
+- Commit `fc8e720` (`docs/ARCHITECTURE.md`) has an `Entire-Checkpoint` trailer. The checkpoint `01M6X21B9J606M8XPMGHJZSF88` stores the prompt, the transcript and the tool calls of the separate Claude Code session that wrote that document by reading `src/lib/connect/` and `ml/`.
+- Inspect it: `git fetch origin 'refs/entire/*:refs/entire/*' && entire checkpoint explain 01M6X21B9J606M8XPMGHJZSF88`.
+
+Honest scope: the earlier build sessions were not captured by Entire and are not in the repo. We scanned the stored checkpoint for secrets before pushing it, because Entire's redaction is best effort.
+
 ## Business impact and pilot
 
 **Why it matters.** In the organiser's data 99.3% of 2,835 businesses have at least one day where Google probably shows the wrong hours (5.9 days on average, about 27 people looking per day, from the cost model). At our 85% precision that is about 160 people per business per season. Extrapolated to Connect's 100,000 customers: **roughly 14 million people shown the wrong hours each season**. This is arithmetic on synthetic data; the pilot exists to replace it with measured numbers.
